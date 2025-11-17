@@ -36,7 +36,7 @@ const App: React.FC = () => {
             const data = await fetchData();
             setAppData(data);
         } catch (e) {
-            setError("Failed to connect to the cloud. Displaying sample data.");
+            setError("Failed to load data. Displaying sample data.");
             // The service layer provides default data on failure
             const data = await fetchData();
             setAppData(data);
