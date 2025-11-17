@@ -17,7 +17,7 @@ const LoadBoard: React.FC<LoadBoardProps> = ({ loads, isLoading, error, isLogged
     return (
         <div className="bg-white dark:bg-gray-800 shadow-lg dark:shadow-none dark:border dark:border-gray-700 rounded-lg p-8 text-center">
             <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 animate-pulse">Loading Loads...</h3>
-            <p className="text-gray-500 dark:text-gray-400 mt-2">Fetching the latest data from the cloud.</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-2">Fetching the latest data.</p>
         </div>
     );
   }
@@ -25,7 +25,7 @@ const LoadBoard: React.FC<LoadBoardProps> = ({ loads, isLoading, error, isLogged
   if (error) {
      return (
         <div className="bg-red-100 dark:bg-red-900/50 border-l-4 border-red-500 text-red-700 dark:text-red-200 p-6 rounded-lg" role="alert">
-            <h3 className="text-xl font-bold">Connection Error</h3>
+            <h3 className="text-xl font-bold">Error Loading Data</h3>
             <p className="mt-2">{error}</p>
         </div>
     );
