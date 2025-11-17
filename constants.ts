@@ -1,9 +1,6 @@
 import type { Load } from './types';
 
-// The single endpoint for fetching and saving all application data.
-export const CLOUD_STORAGE_URL = '/api/loadboard-data';
-
-// MOCK_LOADS will be used as the initial state if the cloud storage is empty.
+// MOCK_LOADS will be used as the initial state if local storage is empty.
 export const MOCK_LOADS: Load[] = [
 
   {
