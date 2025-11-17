@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import * as React from 'react';
 import Header from './components/Header';
 import LoadBoard from './components/LoadBoard';
 import LoadBuilderModal from './components/LoadBuilderModal';
@@ -10,7 +10,7 @@ import type { Load } from './types';
 import { getCarrierEmails } from './components/carrier-emails';
 
 const App: React.FC = () => {
-  const [loads, setLoads] = useState<Load[]>(() => {
+  const [loads, setLoads] = React.useState<Load[]>(() => {
     try {
       const storedLoads = localStorage.getItem(LOADS_STORAGE_KEY);
 
@@ -46,12 +46,12 @@ const App: React.FC = () => {
     }
   });
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingLoad, setEditingLoad] = useState<Load | null>(null);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [editingLoad, setEditingLoad] = React.useState<Load | null>(null);
+  const [isLoginModalOpen, setIsLoginModalOpen] = React.useState(false);
+  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+  const [isAdmin, setIsAdmin] = React.useState(false);
+  const [theme, setTheme] = React.useState<'light' | 'dark'>(() => {
     try {
       const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
       if (savedTheme) {
@@ -67,7 +67,7 @@ const App: React.FC = () => {
   });
 
   // Save loads to local storage whenever the 'loads' state changes.
-  useEffect(() => {
+  React.useEffect(() => {
     try {
       localStorage.setItem(LOADS_STORAGE_KEY, JSON.stringify(loads));
     } catch (error) {
@@ -76,7 +76,7 @@ const App: React.FC = () => {
   }, [loads]);
 
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {

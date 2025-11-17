@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import * as React from 'react';
 import { XIcon } from './icons/XIcon';
 import { TargetIcon } from './icons/TargetIcon';
 
@@ -9,8 +10,8 @@ interface LoginModalProps {
 }
 
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

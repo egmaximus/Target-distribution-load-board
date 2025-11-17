@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+
+import * as React from 'react';
 import { addCarrierEmail } from './carrier-emails';
 
 const SubscriptionForm: React.FC = () => {
-    const [email, setEmail] = useState('');
-    const [message, setMessage] = useState('');
-    const [isSuccess, setIsSuccess] = useState(false);
+    const [email, setEmail] = React.useState('');
+    const [message, setMessage] = React.useState('');
+    const [isSuccess, setIsSuccess] = React.useState(false);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();

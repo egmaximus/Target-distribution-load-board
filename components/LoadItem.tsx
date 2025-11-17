@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import * as React from 'react';
 import type { Load } from '../types';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { TruckIcon } from './icons/TruckIcon';
@@ -68,12 +69,12 @@ interface LoadItemProps {
 }
 
 const LoadItem: React.FC<LoadItemProps> = ({ load: rawLoad, isLoggedIn, isAdmin, onPromptLogin, onRemoveLoad, onEditLoad }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [bidAmount, setBidAmount] = useState('');
-  const [carrierName, setCarrierName] = useState('');
-  const [daysInTransit, setDaysInTransit] = useState('');
-  const [error, setError] = useState('');
-  const [distance, setDistance] = useState<number | 'loading' | 'error' | null>(null);
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  const [bidAmount, setBidAmount] = React.useState('');
+  const [carrierName, setCarrierName] = React.useState('');
+  const [daysInTransit, setDaysInTransit] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [distance, setDistance] = React.useState<number | 'loading' | 'error' | null>(null);
 
   // Destructure with default values to prevent crashes from malformed load objects.
   const { 
@@ -95,7 +96,7 @@ const LoadItem: React.FC<LoadItemProps> = ({ load: rawLoad, isLoggedIn, isAdmin,
   } = rawLoad || {};
 
 
-  useEffect(() => {
+  React.useEffect(() => {
     // Only calculate distance if the panel is expanded and we haven't calculated it before.
     if (isExpanded && distance === null) {
       setDistance('loading');

@@ -1,4 +1,5 @@
-import React from 'react';
+
+import * as React from 'react';
 import { TargetIcon } from './icons/TargetIcon';
 import ThemeToggle from './ThemeToggle';
 

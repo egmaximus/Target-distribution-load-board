@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import * as React from 'react';
 import type { Load } from '../types';
 import { XIcon } from './icons/XIcon';
 import { PREDEFINED_DESTINATIONS } from '../delivery-locations';
@@ -36,12 +37,12 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
     appointmentNumber: ''
   };
 
-  const [formData, setFormData] = useState(initialFormState);
-  const [originSelection, setOriginSelection] = useState('');
-  const [destinations, setDestinations] = useState([{ selection: '', city: '', state: '' }]);
+  const [formData, setFormData] = React.useState(initialFormState);
+  const [originSelection, setOriginSelection] = React.useState('');
+  const [destinations, setDestinations] = React.useState([{ selection: '', city: '', state: '' }]);
 
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!isOpen) return;
 
     if (isEditMode && loadToEdit) {
