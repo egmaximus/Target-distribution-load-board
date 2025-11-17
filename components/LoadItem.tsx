@@ -29,6 +29,7 @@ const MOCK_COORDINATES: { [key: string]: { lat: number; lon: number } } = {
  * @returns A promise that resolves to a coordinate object or null if not found.
  */
 const mockGeocode = async (address: string): Promise<{ lat: number; lon: number } | null> => {
+  if (!address) return null;
   const normalizedAddress = address.toLowerCase();
   for (const key in MOCK_COORDINATES) {
     if (normalizedAddress.includes(key)) {
@@ -60,18 +61,39 @@ const calculateDistance = (coords1: { lat: number; lon: number }, coords2: { lat
 interface LoadItemProps {
   load: Load;
   isLoggedIn: boolean;
+  isAdmin: boolean;
   onPromptLogin: () => void;
   onRemoveLoad: (loadId: string) => void;
   onEditLoad: (load: Load) => void;
 }
 
-const LoadItem: React.FC<LoadItemProps> = ({ load, isLoggedIn, onPromptLogin, onRemoveLoad, onEditLoad }) => {
+const LoadItem: React.FC<LoadItemProps> = ({ load: rawLoad, isLoggedIn, isAdmin, onPromptLogin, onRemoveLoad, onEditLoad }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [bidAmount, setBidAmount] = useState('');
   const [carrierName, setCarrierName] = useState('');
   const [daysInTransit, setDaysInTransit] = useState('');
   const [error, setError] = useState('');
   const [distance, setDistance] = useState<number | 'loading' | 'error' | null>(null);
+
+  // Destructure with default values to prevent crashes from malformed load objects.
+  const { 
+    id,
+    itemDescription = 'N/A',
+    referenceNumber,
+    origin = 'N/A',
+    destinations = [],
+    pickupDate = '',
+    deliveryDate = '',
+    palletCount = 0,
+    weight = 0,
+    equipmentType = 'N/A',
+    details = '',
+    bids = [],
+    appointmentDate,
+    appointmentTime,
+    appointmentNumber
+  } = rawLoad || {};
+
 
   useEffect(() => {
     // Only calculate distance if the panel is expanded and we haven't calculated it before.
@@ -83,8 +105,8 @@ const LoadItem: React.FC<LoadItemProps> = ({ load, isLoggedIn, onPromptLogin, on
           // Simulate a network request to make the loading state visible
           await new Promise(resolve => setTimeout(resolve, 300));
 
-          const originCoords = await mockGeocode(load.origin);
-          const destCoordsPromises = load.destinations.map(d => mockGeocode(d));
+          const originCoords = await mockGeocode(origin);
+          const destCoordsPromises = destinations.map(d => mockGeocode(d));
           const destCoords = (await Promise.all(destCoordsPromises)).filter(c => c !== null) as { lat: number; lon: number }[];
           
           if (originCoords && destCoords.length > 0) {
@@ -106,10 +128,10 @@ const LoadItem: React.FC<LoadItemProps> = ({ load, isLoggedIn, onPromptLogin, on
 
       getDistance();
     }
-  }, [isExpanded, load.origin, load.destinations, distance]);
+  }, [isExpanded, origin, destinations, distance]);
 
 
-  const sortedBids = [...load.bids].sort((a, b) => a.amount - b.amount);
+  const sortedBids = [...bids].sort((a, b) => a.amount - b.amount);
   const lowestBid = sortedBids.length > 0 ? sortedBids[0].amount : null;
 
   const formatDate = (dateString: string) => {
@@ -157,21 +179,21 @@ const LoadItem: React.FC<LoadItemProps> = ({ load, isLoggedIn, onPromptLogin, on
     setError('');
 
     const recipient = 'OMorales@targetdistribution.com';
-    const subject = `Bid for Load #${load.referenceNumber || load.id}: ${formatLocation(load.origin)} to ${formatLocation(load.destinations[0])}${load.destinations.length > 1 ? ' (+ multi-stop)' : ''}`;
-    const destinationsText = load.destinations.map((d, i) => `Destination ${i + 1}: ${d}`).join('\n');
+    const subject = `Bid for Load #${referenceNumber || id}: ${formatLocation(origin)} to ${formatLocation(destinations[0] || '')}${destinations.length > 1 ? ' (+ multi-stop)' : ''}`;
+    const destinationsText = destinations.map((d, i) => `Destination ${i + 1}: ${d}`).join('\n');
    
     const body = `We can move this shipment for Bid Amount: ${formatCurrency(amount, false)}
 Days In Transit: ${transitDays}
 
-Reference #: ${load.referenceNumber || 'N/A'}
-Origin: ${load.origin}
+Reference #: ${referenceNumber || 'N/A'}
+Origin: ${origin}
 ${destinationsText}
-Pickup Date: ${formatDate(load.pickupDate)}
-Delivery Date: ${formatDate(load.deliveryDate)}
-Equipment: ${load.equipmentType}
-Pallet Count: ${load.palletCount}
-Weight: ${load.weight.toLocaleString()} lbs
-Details: ${load.details}
+Pickup Date: ${formatDate(pickupDate)}
+Delivery Date: ${formatDate(deliveryDate)}
+Equipment: ${equipmentType}
+Pallet Count: ${palletCount}
+Weight: ${weight.toLocaleString()} lbs
+Details: ${details}
 
 Thank you,
 ${carrierName.trim()}
@@ -230,6 +252,8 @@ ${carrierName.trim()}
     );
   };
 
+  if (!id) return null; // Don't render if the load is invalid
+
   return (
     <div className="md:border-b-0">
         {/* Main Row */}
@@ -241,33 +265,33 @@ ${carrierName.trim()}
             <div className="col-span-12 md:col-span-4 flex flex-col space-y-2">
                  <div className="flex items-center space-x-2 text-gray-800 dark:text-gray-100">
                     <LocationMarkerIcon className="h-5 w-5 text-green-500 flex-shrink-0" />
-                    <span className="font-semibold">{formatLocation(load.origin)}</span>
+                    <span className="font-semibold">{formatLocation(origin)}</span>
                     <span className="text-gray-400 dark:text-gray-500 font-light mx-2">&rarr;</span>
                     <span className="font-semibold">
-                        {formatLocation(load.destinations[0])}
-                        {load.destinations.length > 1 && (
+                        {formatLocation(destinations[0] || '')}
+                        {destinations.length > 1 && (
                             <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">
-                                (+{load.destinations.length - 1})
+                                (+{destinations.length - 1})
                             </span>
                         )}
                     </span>
                  </div>
-                 <div className="text-sm text-gray-500 dark:text-gray-400 md:hidden">Pickup: {formatDate(load.pickupDate)}</div>
+                 <div className="text-sm text-gray-500 dark:text-gray-400 md:hidden">Pickup: {formatDate(pickupDate)}</div>
             </div>
 
             <div className="hidden md:flex md:col-span-2 items-center text-gray-700 dark:text-gray-300">
-                {formatDate(load.pickupDate)}
+                {formatDate(pickupDate)}
             </div>
 
             <div className="hidden md:flex md:col-span-2 items-center text-gray-700 dark:text-gray-300 space-x-2">
                 <TruckIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-                <span>{load.equipmentType}</span>
+                <span>{equipmentType}</span>
             </div>
 
             <div className="col-span-6 md:col-span-2 flex flex-col items-end">
                 {formatCurrency(lowestBid)}
-                {load.bids.length > 0 && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{load.bids.length} bids</span>
+                {bids.length > 0 && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{bids.length} bids</span>
                 )}
             </div>
              <div className="col-span-6 md:col-span-2 flex justify-center items-center">
@@ -282,15 +306,15 @@ ${carrierName.trim()}
                 <div className="md:col-span-5 mb-6 md:mb-0">
                     <div className="flex justify-between items-center mb-2">
                         <h4 className="font-bold text-gray-800 dark:text-gray-100">Load Details</h4>
-                        {isLoggedIn && (
+                        {isLoggedIn && isAdmin && (
                             <div className="flex items-center space-x-2">
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        onEditLoad(load);
+                                        onEditLoad(rawLoad);
                                     }}
                                     className="bg-orange-100 text-orange-700 text-xs font-semibold px-2 py-1 rounded-md hover:bg-orange-200 dark:bg-orange-900/50 dark:text-orange-300 dark:hover:bg-orange-900/80 transition-colors"
-                                    aria-label={`Edit load ${load.referenceNumber || load.id}`}
+                                    aria-label={`Edit load ${referenceNumber || id}`}
                                 >
                                     Edit Load
                                 </button>
@@ -298,11 +322,11 @@ ${carrierName.trim()}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         if (window.confirm('Are you sure you want to remove this load?')) {
-                                            onRemoveLoad(load.id);
+                                            onRemoveLoad(id);
                                         }
                                     }}
                                     className="bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded-md hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/80 transition-colors"
-                                    aria-label={`Remove load ${load.referenceNumber || load.id}`}
+                                    aria-label={`Remove load ${referenceNumber || id}`}
                                 >
                                     Remove Load
                                 </button>
@@ -310,20 +334,20 @@ ${carrierName.trim()}
                         )}
                     </div>
                     <ul className="space-y-2 text-gray-700 dark:text-gray-300">
-                        <li><strong className="dark:text-gray-100">Item:</strong> {load.itemDescription}</li>
-                        {load.referenceNumber && <li><strong className="dark:text-gray-100">Reference #:</strong> {load.referenceNumber}</li>}
-                        <li><strong className="dark:text-gray-100">Origin:</strong> {load.origin}</li>
+                        <li><strong className="dark:text-gray-100">Item:</strong> {itemDescription}</li>
+                        {referenceNumber && <li><strong className="dark:text-gray-100">Reference #:</strong> {referenceNumber}</li>}
+                        <li><strong className="dark:text-gray-100">Origin:</strong> {origin}</li>
                         <li>
                             <strong className="dark:text-gray-100">Destinations:</strong>
                             <ul className="list-disc list-inside pl-4">
-                                {load.destinations.map((dest, index) => (
+                                {destinations.map((dest, index) => (
                                     <li key={index}>{dest}</li>
                                 ))}
                             </ul>
                         </li>
-                        <li><strong className="dark:text-gray-100">Weight:</strong> {load.weight.toLocaleString()} lbs</li>
-                        <li><strong className="dark:text-gray-100">Pallet Count:</strong> {load.palletCount.toLocaleString()}</li>
-                        <li><strong className="dark:text-gray-100">Delivery Date:</strong> {formatDate(load.deliveryDate)}</li>
+                        <li><strong className="dark:text-gray-100">Weight:</strong> {weight.toLocaleString()} lbs</li>
+                        <li><strong className="dark:text-gray-100">Pallet Count:</strong> {palletCount.toLocaleString()}</li>
+                        <li><strong className="dark:text-gray-100">Delivery Date:</strong> {formatDate(deliveryDate)}</li>
                         {/* Distance Calculation Display */}
                         {distance !== null && (
                           <li>
@@ -334,23 +358,23 @@ ${carrierName.trim()}
                             {distance === 'error' && <span className="italic text-gray-500 dark:text-gray-400">Not available</span>}
                           </li>
                         )}
-                        {load.appointmentDate && (
-                            <li><strong className="dark:text-gray-100">Appointment:</strong> {formatDate(load.appointmentDate)}
-                                {load.appointmentTime && ` at ${formatTime(load.appointmentTime)}`}
+                        {appointmentDate && (
+                            <li><strong className="dark:text-gray-100">Appointment:</strong> {formatDate(appointmentDate)}
+                                {appointmentTime && ` at ${formatTime(appointmentTime)}`}
                             </li>
                         )}
-                        {load.appointmentNumber && (
-                             <li><strong className="dark:text-gray-100">Appointment Number:</strong> {load.appointmentNumber}</li>
+                        {appointmentNumber && (
+                             <li><strong className="dark:text-gray-100">Appointment Number:</strong> {appointmentNumber}</li>
                         )}
                         <li className="pt-2">
-                            <p className="text-sm italic text-gray-600 dark:text-gray-400">{load.details}</p>
+                            <p className="text-sm italic text-gray-600 dark:text-gray-400">{details}</p>
                         </li>
                     </ul>
                 </div>
 
                 <div className="md:col-span-4 mb-6 md:mb-0">
-                     <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Bid History ({load.bids.length})</h4>
-                    {load.bids.length > 0 ? (
+                     <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Bid History ({bids.length})</h4>
+                    {bids.length > 0 ? (
                         <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
                             {sortedBids.map(bid => (
                                 <div key={bid.id} className="flex justify-between items-center bg-white dark:bg-gray-700 p-2 rounded-md border dark:border-gray-600">

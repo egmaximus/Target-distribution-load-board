@@ -5,13 +5,16 @@ import LoadItem from './LoadItem';
 interface LoadBoardProps {
   loads: Load[];
   isLoggedIn: boolean;
+  isAdmin: boolean;
   onPromptLogin: () => void;
   onRemoveLoad: (loadId: string) => void;
   onEditLoad: (load: Load) => void;
 }
 
-const LoadBoard: React.FC<LoadBoardProps> = ({ loads, isLoggedIn, onPromptLogin, onRemoveLoad, onEditLoad }) => {
-  if (loads.length === 0) {
+const LoadBoard: React.FC<LoadBoardProps> = ({ loads, isLoggedIn, isAdmin, onPromptLogin, onRemoveLoad, onEditLoad }) => {
+  const validLoads = Array.isArray(loads) ? loads.filter(load => load && typeof load === 'object' && load.id) : [];
+
+  if (validLoads.length === 0) {
     return (
         <div className="bg-white dark:bg-gray-800 shadow-lg dark:shadow-none dark:border dark:border-gray-700 rounded-lg p-8 text-center">
             <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">No Loads Available</h3>
@@ -30,11 +33,12 @@ const LoadBoard: React.FC<LoadBoardProps> = ({ loads, isLoggedIn, onPromptLogin,
             <div className="col-span-2 text-center">Actions</div>
         </div>
       <div className="divide-y divide-gray-200 dark:divide-gray-700">
-        {loads.map((load) => (
+        {validLoads.map((load) => (
           <LoadItem
             key={load.id}
             load={load}
             isLoggedIn={isLoggedIn}
+            isAdmin={isAdmin}
             onPromptLogin={onPromptLogin}
             onRemoveLoad={onRemoveLoad}
             onEditLoad={onEditLoad}

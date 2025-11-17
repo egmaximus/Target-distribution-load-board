@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-
 import Header from './components/Header';
 import LoadBoard from './components/LoadBoard';
 import LoadBuilderModal from './components/LoadBuilderModal';
@@ -14,14 +13,37 @@ const App: React.FC = () => {
   const [loads, setLoads] = useState<Load[]>(() => {
     try {
       const storedLoads = localStorage.getItem(LOADS_STORAGE_KEY);
+
+      // Case 1: Data exists in localStorage.
       if (storedLoads) {
-        return JSON.parse(storedLoads);
+        try {
+          return JSON.parse(storedLoads);
+        } catch (parseError) {
+          console.error("Failed to parse loads from localStorage, clearing corrupted data.", parseError);
+          // Attempt to remove the corrupted item.
+          try {
+            localStorage.removeItem(LOADS_STORAGE_KEY);
+          } catch (removeError) {
+            console.error("Failed to remove corrupted loads from localStorage.", removeError);
+          }
+          return []; // Start with an empty list if data was corrupt.
+        }
       }
-    } catch (error) {
-      console.error("Failed to parse loads from localStorage, falling back to mock data.", error);
+      
+      // Case 2: No data in localStorage (first visit).
+      // Initialize storage with mock data.
+      try {
+        localStorage.setItem(LOADS_STORAGE_KEY, JSON.stringify(MOCK_LOADS));
+      } catch (setItemError) {
+        console.error("Failed to save initial loads to localStorage. Will use in-memory mock data.", setItemError);
+      }
+      return MOCK_LOADS;
+
+    } catch (storageError) {
+      // Case 3: localStorage is not available (e.g., private browsing, sandboxed iframe).
+      console.error("localStorage is not available. Using in-memory mock data.", storageError);
+      return MOCK_LOADS; // Fallback to in-memory mock data without trying to write.
     }
-    // If local storage is empty or fails, initialize with mock data.
-    return MOCK_LOADS;
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,10 +52,13 @@ const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    // Theme preference is user-specific and can remain in local storage.
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    if (savedTheme) {
-      return savedTheme;
+    try {
+      const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+      if (savedTheme) {
+        return savedTheme;
+      }
+    } catch (error) {
+      console.error("Failed to read theme from localStorage.", error);
     }
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       return 'dark';
@@ -47,7 +72,6 @@ const App: React.FC = () => {
       localStorage.setItem(LOADS_STORAGE_KEY, JSON.stringify(loads));
     } catch (error) {
       console.error("Failed to save loads to localStorage", error);
-      // We don't need to show a UI error, as the user's session state is correct.
     }
   }, [loads]);
 
@@ -58,7 +82,11 @@ const App: React.FC = () => {
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('theme', theme);
+    try {
+      localStorage.setItem('theme', theme);
+    } catch (error) {
+      console.error("Failed to save theme to localStorage.", error);
+    }
   }, [theme]);
 
   const handleToggleTheme = () => {
@@ -113,10 +141,7 @@ https://target-distribution-loadboard-770425821428.us-west1.run.app/
 Thank you,
 Target Distribution`;
 
-    const mailtoLink = `mailto:${recipient}?bcc=${bccRecipients}&subject=${encodeURIComponent(
-      subject
-    )}&body=${encodeURIComponent(body.trim())}`;
-    
+    const mailtoLink = `mailto:${recipient}?bcc=${bccRecipients}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailtoLink;
   };
 
@@ -128,34 +153,38 @@ Target Distribution`;
     };
     setLoads(prevLoads => [newLoad, ...prevLoads]);
     setIsModalOpen(false);
-    
     sendNewLoadNotification(newLoad);
   };
 
   const handleUpdateLoad = (updatedLoad: Load) => {
     setLoads(prevLoads => prevLoads.map(load => (load.id === updatedLoad.id ? updatedLoad : load)));
-    setEditingLoad(null);
     setIsModalOpen(false);
+    setEditingLoad(null);
   };
-  
+
+  const handleRemoveLoad = (loadId: string) => {
+    setLoads(prevLoads => prevLoads.filter(load => load.id !== loadId));
+  };
+
   const handleOpenEditModal = (load: Load) => {
     setEditingLoad(load);
     setIsModalOpen(true);
   };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingLoad(null);
-  };
-
+  
   const handleLogin = (email: string, password: string) => {
-    if (email.toLowerCase() === 'omorales@targetdistribution.com' && password === 'Target8420') {
-        setIsAdmin(true);
-    } else {
-        setIsAdmin(false);
+    // This is a mock login. In a real app, you'd verify against a server.
+    if (email.toLowerCase() === 'admin@targetdistribution.com' && password === 'password123') {
+      setIsLoggedIn(true);
+      setIsAdmin(true);
+      setIsLoginModalOpen(false);
+    } else if (password === 'carrier123') { // Simple login for carriers to view bids
+      setIsLoggedIn(true);
+      setIsAdmin(false);
+      setIsLoginModalOpen(false);
     }
-    setIsLoggedIn(true);
-    setIsLoginModalOpen(false);
+     else {
+      alert('Invalid credentials. Hint: use admin@targetdistribution.com / password123 for admin, or any email / carrier123 for carrier.');
+    }
   };
 
   const handleLogout = () => {
@@ -163,41 +192,41 @@ Target Distribution`;
     setIsAdmin(false);
   };
 
-  const handleOpenLoginModal = () => {
+  const handlePromptLogin = () => {
     setIsLoginModalOpen(true);
   };
 
-  const handleRemoveLoad = (loadId: string) => {
-    setLoads(prevLoads => prevLoads.filter(load => load.id !== loadId));
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 font-sans transition-colors duration-300">
+    <div className={`min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 font-sans transition-colors duration-300`}>
       <Header
         onOpenPostLoadModal={() => {
-            setEditingLoad(null);
-            setIsModalOpen(true);
+          setEditingLoad(null);
+          setIsModalOpen(true);
         }}
         theme={theme}
         onToggleTheme={handleToggleTheme}
         isLoggedIn={isLoggedIn}
-        onOpenLoginModal={handleOpenLoginModal}
+        isAdmin={isAdmin}
+        onOpenLoginModal={handlePromptLogin}
         onLogout={handleLogout}
       />
       <main className="container mx-auto p-4 md:p-8">
         <SubscriptionForm />
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">Open Freight Loads</h1>
-        <LoadBoard
+        <LoadBoard 
           loads={loads}
           isLoggedIn={isLoggedIn}
-          onPromptLogin={handleOpenLoginModal}
+          isAdmin={isAdmin}
+          onPromptLogin={handlePromptLogin}
           onRemoveLoad={handleRemoveLoad}
           onEditLoad={handleOpenEditModal}
         />
       </main>
       <LoadBuilderModal
         isOpen={isModalOpen}
-        onClose={closeModal}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingLoad(null);
+        }}
         onPostLoad={handlePostLoad}
         onUpdateLoad={handleUpdateLoad}
         loadToEdit={editingLoad}

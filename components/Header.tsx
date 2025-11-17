@@ -7,6 +7,7 @@ interface HeaderProps {
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   isLoggedIn: boolean;
+  isAdmin: boolean;
   onOpenLoginModal: () => void;
   onLogout: () => void;
 }
@@ -16,6 +17,7 @@ const Header: React.FC<HeaderProps> = ({
   theme, 
   onToggleTheme,
   isLoggedIn,
+  isAdmin,
   onOpenLoginModal,
   onLogout
 }) => {
@@ -30,7 +32,7 @@ const Header: React.FC<HeaderProps> = ({
         </div>
         <div className="flex items-center space-x-4">
           <nav className="flex items-center space-x-4">
-            {isLoggedIn && (
+            {isLoggedIn && isAdmin && (
               <button
                 onClick={onOpenPostLoadModal}
                 aria-label="Post a Load"

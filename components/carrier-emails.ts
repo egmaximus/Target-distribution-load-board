@@ -17,14 +17,35 @@ const DEFAULT_CARRIER_EMAILS: string[] = [
 export const getCarrierEmails = (): string[] => {
   try {
     const storedEmails = localStorage.getItem(CARRIER_EMAILS_STORAGE_KEY);
+    
+    // Case 1: Data exists
     if (storedEmails) {
+      try {
         return JSON.parse(storedEmails);
+      } catch (parseError) {
+        console.error("Failed to parse carrier emails, resetting.", parseError);
+        // Try to clear and reset, but don't crash if it fails
+        try {
+          localStorage.removeItem(CARRIER_EMAILS_STORAGE_KEY);
+          localStorage.setItem(CARRIER_EMAILS_STORAGE_KEY, JSON.stringify(DEFAULT_CARRIER_EMAILS));
+        } catch (resetError) {
+          console.error("Failed to reset corrupted emails in localStorage.", resetError);
+        }
+        return DEFAULT_CARRIER_EMAILS;
+      }
     }
-    // If storage is empty, initialize it with the default list.
-    localStorage.setItem(CARRIER_EMAILS_STORAGE_KEY, JSON.stringify(DEFAULT_CARRIER_EMAILS));
+
+    // Case 2: No data (first visit)
+    try {
+      localStorage.setItem(CARRIER_EMAILS_STORAGE_KEY, JSON.stringify(DEFAULT_CARRIER_EMAILS));
+    } catch (setItemError) {
+       console.error("Failed to save initial emails to localStorage.", setItemError);
+    }
     return DEFAULT_CARRIER_EMAILS;
-  } catch (error) {
-    console.error("Failed to retrieve carrier emails from local storage", error);
+
+  } catch (storageError) {
+    // Case 3: localStorage not available
+    console.error("Could not access localStorage for carrier emails.", storageError);
     return DEFAULT_CARRIER_EMAILS;
   }
 };
