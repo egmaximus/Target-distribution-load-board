@@ -1,0 +1,5 @@
+{
+  "name": "Target Distribution Loadboard",
+  "description": "A freight dispatch board, similar to Central Dispatch, allowing carriers to bid on open freight of magazines that need to be moved for Target Distribution.",
+  "requestFramePermissions": []
+}
