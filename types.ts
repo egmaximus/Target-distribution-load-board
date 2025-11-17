@@ -7,7 +7,7 @@ export interface Bid {
 
 export interface Load {
   id: string;
-  itemDescriptions: string[];
+  itemDescription: string;
   referenceNumber?: string;
   origin: string;
   destinations: string[];
@@ -21,9 +21,4 @@ export interface Load {
   appointmentDate?: string;
   appointmentTime?: string;
   appointmentNumber?: string;
-}
-
-export interface AppData {
-  loads: Load[];
-  carrierEmails: string[];
 }

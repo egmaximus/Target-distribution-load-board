@@ -1,13 +1,17 @@
 import type { Load } from './types';
 
-// MOCK_LOADS will be used as the initial state if local storage is empty.
+// Local storage keys
+export const LOADS_STORAGE_KEY = 'td_loads';
+export const CARRIER_EMAILS_STORAGE_KEY = 'td_carrier_emails';
+ 
+
 export const MOCK_LOADS: Load[] = [
 
   {
 
     id: 'load-1',
 
-    itemDescriptions: ['Palm Beach Illustrated'],
+    itemDescription: 'Palm Beach Illustrated',
 
     referenceNumber: 'TR-PBI-001',
 
@@ -41,7 +45,7 @@ export const MOCK_LOADS: Load[] = [
 
     id: 'load-2',
 
-    itemDescriptions: ['Tallahassee Magazine'],
+    itemDescription: 'Tallahassee Magazine',
 
     referenceNumber: 'TR-TMAG-005',
 
@@ -73,7 +77,7 @@ export const MOCK_LOADS: Load[] = [
 
     id: 'load-3',
 
-    itemDescriptions: ['Aventura'],
+    itemDescription: 'Aventura',
 
     referenceNumber: 'TR-AVM-002',
 
@@ -115,7 +119,7 @@ export const MOCK_LOADS: Load[] = [
 
     id: 'load-4',
 
-    itemDescriptions: ['Emerald Coast Magazine'],
+    itemDescription: 'Emerald Coast Magazine',
 
     referenceNumber: 'TR-ECM-009',
 
@@ -143,7 +147,7 @@ export const MOCK_LOADS: Load[] = [
 
     id: 'load-5',
 
-    itemDescriptions: ['850 Business Magazine'],
+    itemDescription: '850 Business Magazine',
 
     referenceNumber: 'TR-850B-001',
 
@@ -175,7 +179,7 @@ export const MOCK_LOADS: Load[] = [
 
     id: 'load-6',
 
-    itemDescriptions: ['Naples Illustrated'],
+    itemDescription: 'Naples Illustrated',
 
     referenceNumber: 'TR-NPI-011',
 

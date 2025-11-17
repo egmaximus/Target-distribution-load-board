@@ -21,6 +21,7 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
   const isEditMode = !!loadToEdit;
 
   const initialFormState = {
+    itemDescription: '',
     referenceNumber: 'TR-',
     originCity: '',
     originState: '',
@@ -36,7 +37,6 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
   };
 
   const [formData, setFormData] = useState(initialFormState);
-  const [itemDescriptions, setItemDescriptions] = useState<string[]>(['']);
   const [originSelection, setOriginSelection] = useState('');
   const [destinations, setDestinations] = useState([{ selection: '', city: '', state: '' }]);
 
@@ -61,9 +61,9 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
         }
       });
       setDestinations(loadedDestinations);
-      setItemDescriptions(loadToEdit.itemDescriptions);
 
       setFormData({
+        itemDescription: loadToEdit.itemDescription,
         referenceNumber: loadToEdit.referenceNumber || 'TR-',
         originCity,
         originState,
@@ -79,7 +79,6 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
       });
     } else {
       setFormData(initialFormState);
-      setItemDescriptions(['']);
       setOriginSelection('');
       setDestinations([{ selection: '', city: '', state: '' }]);
     }
@@ -94,25 +93,6 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
         setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
-
-  const handleItemDescriptionChange = (index: number, value: string) => {
-    const newItemDescriptions = [...itemDescriptions];
-    newItemDescriptions[index] = value;
-    setItemDescriptions(newItemDescriptions);
-  };
-
-  const addItemDescription = () => {
-    if (itemDescriptions.length < 5) {
-      setItemDescriptions([...itemDescriptions, '']);
-    }
-  };
-
-  const removeItemDescription = (index: number) => {
-    if (itemDescriptions.length > 1) {
-      setItemDescriptions(itemDescriptions.filter((_, i) => i !== index));
-    }
-  };
-
 
   const handleDestinationChange = (index: number, field: 'selection' | 'city' | 'state', value: string) => {
       const newDestinations = [...destinations];
@@ -148,15 +128,9 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
         alert("Please enter at least one valid destination.");
         return;
     }
-    
-    const itemDescriptionsValue = itemDescriptions.filter(d => d.trim() !== '');
-    if (itemDescriptionsValue.length === 0) {
-        alert("Please select at least one publication.");
-        return;
-    }
 
     const commonLoadData = {
-      itemDescriptions: itemDescriptionsValue,
+      itemDescription: formData.itemDescription,
       referenceNumber: formData.referenceNumber || undefined,
       origin: originValue,
       destinations: destinationsValue,
@@ -207,48 +181,21 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
           {/* Item Description */}
           <fieldset className="space-y-4">
             <legend className="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b dark:border-gray-600 pb-2 w-full">Item Description</legend>
-            <div className="space-y-3">
-              {itemDescriptions.map((desc, index) => (
-                <div key={index} className="flex items-center space-x-3">
-                  <div className="flex-grow">
-                    <label htmlFor={`itemDescription-${index}`} className="sr-only">Publication {index + 1}</label>
-                    <select
-                      name={`itemDescription-${index}`}
-                      id={`itemDescription-${index}`}
-                      value={desc}
-                      onChange={(e) => handleItemDescriptionChange(index, e.target.value)}
-                      className={inputStyles}
-                      required
-                    >
-                      <option value="" disabled>Select a publication...</option>
-                      {PUBLICATION_NAMES.map((name) => (
-                          <option key={name} value={name}>{name}</option>
-                      ))}
-                    </select>
-                  </div>
-                   {itemDescriptions.length > 1 && (
-                      <button
-                          type="button"
-                          onClick={() => removeItemDescription(index)}
-                          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-semibold p-2 mt-1"
-                          aria-label={`Remove publication ${index + 1}`}
-                      >
-                          Remove
-                      </button>
-                  )}
-                </div>
-              ))}
-              {itemDescriptions.length < 5 && (
-                  <div className="flex justify-end">
-                      <button
-                          type="button"
-                          onClick={addItemDescription}
-                          className="bg-gray-200 text-gray-700 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150"
-                      >
-                          + Add Publication
-                      </button>
-                  </div>
-              )}
+            <div>
+              <label htmlFor="itemDescription" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Select Publication</label>
+              <select
+                name="itemDescription"
+                id="itemDescription"
+                value={formData.itemDescription}
+                onChange={handleChange}
+                className={inputStyles}
+                required
+              >
+                <option value="" disabled>Select a publication...</option>
+                {PUBLICATION_NAMES.map((desc) => (
+                    <option key={desc} value={desc}>{desc}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label htmlFor="referenceNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Reference Number</label>

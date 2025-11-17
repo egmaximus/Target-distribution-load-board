@@ -1,20 +1,14 @@
 import React, { useState } from 'react';
+import { addCarrierEmail } from './carrier-emails';
 
-interface SubscriptionFormProps {
-    onSubscribe: (email: string) => Promise<{ success: boolean; message: string }>;
-}
-
-const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ onSubscribe }) => {
+const SubscriptionForm: React.FC = () => {
     const [email, setEmail] = useState('');
     const [message, setMessage] = useState('');
     const [isSuccess, setIsSuccess] = useState(false);
-    const [isSubscribing, setIsSubscribing] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setIsSubscribing(true);
-        const result = await onSubscribe(email);
-        setIsSubscribing(false);
+        const result = addCarrierEmail(email);
 
         setMessage(result.message);
         setIsSuccess(result.success);
@@ -46,15 +40,13 @@ const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ onSubscribe }) => {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="youremail@company.com"
                     required
-                    disabled={isSubscribing}
-                    className="flex-grow w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white disabled:opacity-50"
+                    className="flex-grow w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
                 />
                 <button
                     type="submit"
-                    disabled={isSubscribing}
-                    className="bg-red-600 text-white font-semibold px-6 py-2 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 disabled:bg-red-400 disabled:cursor-not-allowed"
+                    className="bg-red-600 text-white font-semibold px-6 py-2 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150"
                 >
-                    {isSubscribing ? 'Subscribing...' : 'Subscribe'}
+                    Subscribe
                 </button>
             </form>
             {message && (

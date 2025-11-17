@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 
 import Header from './components/Header';
@@ -5,19 +6,31 @@ import LoadBoard from './components/LoadBoard';
 import LoadBuilderModal from './components/LoadBuilderModal';
 import LoginModal from './components/LoginModal';
 import SubscriptionForm from './components/SubscriptionForm';
-import { fetchData, saveData } from './services/dataService';
-import type { Load, AppData } from './types';
+import { MOCK_LOADS, LOADS_STORAGE_KEY } from './constants';
+import type { Load } from './types';
+import { getCarrierEmails } from './components/carrier-emails';
 
 const App: React.FC = () => {
-  const [appData, setAppData] = useState<AppData>({ loads: [], carrierEmails: [] });
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loads, setLoads] = useState<Load[]>(() => {
+    try {
+      const storedLoads = localStorage.getItem(LOADS_STORAGE_KEY);
+      if (storedLoads) {
+        return JSON.parse(storedLoads);
+      }
+    } catch (error) {
+      console.error("Failed to parse loads from localStorage, falling back to mock data.", error);
+    }
+    // If local storage is empty or fails, initialize with mock data.
+    return MOCK_LOADS;
+  });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLoad, setEditingLoad] = useState<Load | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    // Theme preference is user-specific and can remain in local storage.
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
     if (savedTheme) {
       return savedTheme;
@@ -28,24 +41,15 @@ const App: React.FC = () => {
     return 'light';
   });
 
+  // Save loads to local storage whenever the 'loads' state changes.
   useEffect(() => {
-    const loadAppData = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const data = await fetchData();
-            setAppData(data);
-        } catch (e) {
-            setError("Failed to load data. Displaying sample data.");
-            // The service layer provides default data on failure
-            const data = await fetchData();
-            setAppData(data);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    loadAppData();
-  }, []);
+    try {
+      localStorage.setItem(LOADS_STORAGE_KEY, JSON.stringify(loads));
+    } catch (error) {
+      console.error("Failed to save loads to localStorage", error);
+      // We don't need to show a UI error, as the user's session state is correct.
+    }
+  }, [loads]);
 
 
   useEffect(() => {
@@ -62,8 +66,8 @@ const App: React.FC = () => {
   };
 
   const sendNewLoadNotification = (newLoad: Load) => {
-    const recipient = 'omorales@targetdistribution.com';
-    const carrierEmails = appData.carrierEmails;
+    const recipient = 'omorales@targetdistribution.com'; // Admin's email for record-keeping
+    const carrierEmails = getCarrierEmails();
     const bccRecipients = carrierEmails.join(',');
     const subject = `New Freight Available: ${newLoad.origin} to ${newLoad.destinations[0]}${newLoad.destinations.length > 1 ? ` (+${newLoad.destinations.length - 1} drops)` : ''}`;
 
@@ -80,16 +84,11 @@ const App: React.FC = () => {
       `Destination ${index + 1}: ${dest}`
     ).join('\n');
 
-    const publicationsList = newLoad.itemDescriptions.map(item => 
-      `- ${item}`
-    ).join('\n');
-
     const body = `A new load has been posted and is available for bidding.
 
 Load Details:
 --------------------------------------------------
-Items:
-${publicationsList}
+Item: ${newLoad.itemDescription}
 Reference #: ${newLoad.referenceNumber || 'N/A'}
 
 Origin: ${newLoad.origin}
@@ -121,87 +120,22 @@ Target Distribution`;
     window.location.href = mailtoLink;
   };
 
-  const handlePostLoad = async (newLoadData: Omit<Load, 'id' | 'bids'>) => {
+  const handlePostLoad = (newLoadData: Omit<Load, 'id' | 'bids'>) => {
     const newLoad: Load = {
       ...newLoadData,
       id: `load-${Date.now()}`,
       bids: [],
     };
-    
-    const originalData = appData;
-    const newData: AppData = { ...appData, loads: [newLoad, ...appData.loads] };
-    
-    setAppData(newData);
+    setLoads(prevLoads => [newLoad, ...prevLoads]);
     setIsModalOpen(false);
-
-    try {
-        await saveData(newData);
-        sendNewLoadNotification(newLoad);
-    } catch(e) {
-        console.error("Failed to post load:", e);
-        alert("Failed to save the new load. The change has been reverted.");
-        setAppData(originalData); // Rollback
-    }
+    
+    sendNewLoadNotification(newLoad);
   };
 
-  const handleUpdateLoad = async (updatedLoad: Load) => {
-    const originalData = appData;
-    const newLoads = appData.loads.map(load => (load.id === updatedLoad.id ? updatedLoad : load));
-    const newData: AppData = { ...appData, loads: newLoads };
-
-    setAppData(newData);
+  const handleUpdateLoad = (updatedLoad: Load) => {
+    setLoads(prevLoads => prevLoads.map(load => (load.id === updatedLoad.id ? updatedLoad : load)));
     setEditingLoad(null);
     setIsModalOpen(false);
-    
-    try {
-        await saveData(newData);
-    } catch(e) {
-        console.error("Failed to update load:", e);
-        alert("Failed to save changes to the load. The change has been reverted.");
-        setAppData(originalData); // Rollback
-    }
-  };
-
-  const handleRemoveLoad = async (loadId: string) => {
-    const originalData = appData;
-    const newLoads = appData.loads.filter(load => load.id !== loadId);
-    const newData: AppData = { ...appData, loads: newLoads };
-
-    setAppData(newData);
-
-    try {
-        await saveData(newData);
-    } catch(e) {
-        console.error("Failed to remove load:", e);
-        alert("Failed to remove the load. The change has been reverted.");
-        setAppData(originalData); // Rollback
-    }
-  };
-
-  const handleAddCarrierEmail = async (email: string): Promise<{ success: boolean; message: string; }> => {
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return { success: false, message: 'Please enter a valid email address.' };
-    }
-
-    const originalData = appData;
-    const normalizedEmail = email.toLowerCase();
-
-    if (appData.carrierEmails.map(e => e.toLowerCase()).includes(normalizedEmail)) {
-        return { success: false, message: 'This email is already subscribed.' };
-    }
-
-    const newEmails = [...appData.carrierEmails, email];
-    const newData: AppData = { ...appData, carrierEmails: newEmails };
-    setAppData(newData);
-
-    try {
-        await saveData(newData);
-        return { success: true, message: 'You have been successfully subscribed!' };
-    } catch(e) {
-        console.error("Failed to add carrier email:", e);
-        setAppData(originalData); // Rollback
-        return { success: false, message: 'An error occurred while subscribing. Please try again.' };
-    }
   };
   
   const handleOpenEditModal = (load: Load) => {
@@ -233,6 +167,10 @@ Target Distribution`;
     setIsLoginModalOpen(true);
   };
 
+  const handleRemoveLoad = (loadId: string) => {
+    setLoads(prevLoads => prevLoads.filter(load => load.id !== loadId));
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 font-sans transition-colors duration-300">
       <Header
@@ -247,12 +185,10 @@ Target Distribution`;
         onLogout={handleLogout}
       />
       <main className="container mx-auto p-4 md:p-8">
-        <SubscriptionForm onSubscribe={handleAddCarrierEmail} />
+        <SubscriptionForm />
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">Open Freight Loads</h1>
         <LoadBoard
-          loads={appData.loads}
-          isLoading={isLoading}
-          error={error}
+          loads={loads}
           isLoggedIn={isLoggedIn}
           onPromptLogin={handleOpenLoginModal}
           onRemoveLoad={handleRemoveLoad}

@@ -159,13 +159,9 @@ const LoadItem: React.FC<LoadItemProps> = ({ load, isLoggedIn, onPromptLogin, on
     const recipient = 'OMorales@targetdistribution.com';
     const subject = `Bid for Load #${load.referenceNumber || load.id}: ${formatLocation(load.origin)} to ${formatLocation(load.destinations[0])}${load.destinations.length > 1 ? ' (+ multi-stop)' : ''}`;
     const destinationsText = load.destinations.map((d, i) => `Destination ${i + 1}: ${d}`).join('\n');
-    const itemsText = load.itemDescriptions.map(d => `- ${d}`).join('\n');
    
     const body = `We can move this shipment for Bid Amount: ${formatCurrency(amount, false)}
 Days In Transit: ${transitDays}
-
-Items:
-${itemsText}
 
 Reference #: ${load.referenceNumber || 'N/A'}
 Origin: ${load.origin}
@@ -314,14 +310,7 @@ ${carrierName.trim()}
                         )}
                     </div>
                     <ul className="space-y-2 text-gray-700 dark:text-gray-300">
-                        <li>
-                            <strong className="dark:text-gray-100">Items:</strong>
-                            <ul className="list-disc list-inside pl-4">
-                                {load.itemDescriptions.map((desc, index) => (
-                                    <li key={index}>{desc}</li>
-                                ))}
-                            </ul>
-                        </li>
+                        <li><strong className="dark:text-gray-100">Item:</strong> {load.itemDescription}</li>
                         {load.referenceNumber && <li><strong className="dark:text-gray-100">Reference #:</strong> {load.referenceNumber}</li>}
                         <li><strong className="dark:text-gray-100">Origin:</strong> {load.origin}</li>
                         <li>
