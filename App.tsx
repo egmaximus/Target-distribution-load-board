@@ -1,51 +1,20 @@
 
 import * as React from 'react';
+import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs, writeBatch, query, orderBy } from 'firebase/firestore';
+import { onAuthStateChanged, signOut, signInWithEmailAndPassword } from 'firebase/auth';
+import { db, auth } from './firebase-config.ts';
 import Header from './components/Header.tsx';
 import LoadBoard from './components/LoadBoard.tsx';
 import LoadBuilderModal from './components/LoadBuilderModal.tsx';
 import LoginModal from './components/LoginModal.tsx';
 import SubscriptionForm from './components/SubscriptionForm.tsx';
-import { MOCK_LOADS, LOADS_STORAGE_KEY } from './constants.ts';
+import { MOCK_LOADS } from './constants.ts';
 import type { Load } from './types.ts';
 import { getCarrierEmails } from './components/carrier-emails.ts';
 
 const App: React.FC = () => {
-  const [loads, setLoads] = React.useState<Load[]>(() => {
-    try {
-      const storedLoads = localStorage.getItem(LOADS_STORAGE_KEY);
-
-      // Case 1: Data exists in localStorage.
-      if (storedLoads) {
-        try {
-          return JSON.parse(storedLoads);
-        } catch (parseError) {
-          console.error("Failed to parse loads from localStorage, clearing corrupted data.", parseError);
-          // Attempt to remove the corrupted item.
-          try {
-            localStorage.removeItem(LOADS_STORAGE_KEY);
-          } catch (removeError) {
-            console.error("Failed to remove corrupted loads from localStorage.", removeError);
-          }
-          return []; // Start with an empty list if data was corrupt.
-        }
-      }
-      
-      // Case 2: No data in localStorage (first visit).
-      // Initialize storage with mock data.
-      try {
-        localStorage.setItem(LOADS_STORAGE_KEY, JSON.stringify(MOCK_LOADS));
-      } catch (setItemError) {
-        console.error("Failed to save initial loads to localStorage. Will use in-memory mock data.", setItemError);
-      }
-      return MOCK_LOADS;
-
-    } catch (storageError) {
-      // Case 3: localStorage is not available (e.g., private browsing, sandboxed iframe).
-      console.error("localStorage is not available. Using in-memory mock data.", storageError);
-      return MOCK_LOADS; // Fallback to in-memory mock data without trying to write.
-    }
-  });
-
+  const [loads, setLoads] = React.useState<Load[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [editingLoad, setEditingLoad] = React.useState<Load | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = React.useState(false);
@@ -54,34 +23,58 @@ const App: React.FC = () => {
   const [theme, setTheme] = React.useState<'light' | 'dark'>(() => {
     try {
       const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-      if (savedTheme) {
-        return savedTheme;
-      }
+      if (savedTheme) return savedTheme;
     } catch (error) {
       console.error("Failed to read theme from localStorage.", error);
     }
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
-    return 'light';
+    return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light';
   });
 
-  // Save loads to local storage whenever the 'loads' state changes.
+  // Fetch loads from Firestore in real-time
   React.useEffect(() => {
-    try {
-      localStorage.setItem(LOADS_STORAGE_KEY, JSON.stringify(loads));
-    } catch (error) {
-      console.error("Failed to save loads to localStorage", error);
-    }
-  }, [loads]);
+    const loadsCollection = collection(db, 'loads');
+    const q = query(loadsCollection, orderBy('pickupDate', 'desc'));
 
+    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+      // Seed database if it's empty on first load
+      if (querySnapshot.empty && MOCK_LOADS.length > 0) {
+        console.log("Empty 'loads' collection, seeding with mock data...");
+        const batch = writeBatch(db);
+        MOCK_LOADS.forEach((load) => {
+          const { id, ...loadData } = load; // Firestore generates its own ID
+          const docRef = doc(collection(db, 'loads'));
+          batch.set(docRef, loadData);
+        });
+        await batch.commit();
+      } else {
+        const loadsData = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Load));
+        setLoads(loadsData);
+      }
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching loads:", error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Listen for authentication state changes
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setIsLoggedIn(true);
+        setIsAdmin(user.email === 'admin@targetdistribution.com');
+      } else {
+        setIsLoggedIn(false);
+        setIsAdmin(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   React.useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.classList.toggle('dark', theme === 'dark');
     try {
       localStorage.setItem('theme', theme);
     } catch (error) {
@@ -93,24 +86,15 @@ const App: React.FC = () => {
     setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
   };
 
-  const sendNewLoadNotification = (newLoad: Load) => {
-    const recipient = 'omorales@targetdistribution.com'; // Admin's email for record-keeping
-    const carrierEmails = getCarrierEmails();
+  const sendNewLoadNotification = async (newLoad: Load) => {
+    const recipient = 'omorales@targetdistribution.com';
+    const carrierEmails = await getCarrierEmails();
+    if (carrierEmails.length === 0) return; // Don't open mailto if no carriers subscribed
+
     const bccRecipients = carrierEmails.join(',');
     const subject = `New Freight Available: ${newLoad.origin} to ${newLoad.destinations[0]}${newLoad.destinations.length > 1 ? ` (+${newLoad.destinations.length - 1} drops)` : ''}`;
-
-    const formatDate = (dateString: string) => {
-      if (!dateString) return 'N/A';
-      return new Date(`${dateString}T00:00:00`).toLocaleDateString('en-US', {
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      });
-    };
-
-    const destinationsList = newLoad.destinations.map((dest, index) => 
-      `Destination ${index + 1}: ${dest}`
-    ).join('\n');
+    const formatDate = (dateString: string) => dateString ? new Date(`${dateString}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A';
+    const destinationsList = newLoad.destinations.map((dest, index) => `Destination ${index + 1}: ${dest}`).join('\n');
 
     const body = `A new load has been posted and is available for bidding.
 
@@ -118,13 +102,10 @@ Load Details:
 --------------------------------------------------
 Item: ${newLoad.itemDescription}
 Reference #: ${newLoad.referenceNumber || 'N/A'}
-
 Origin: ${newLoad.origin}
 ${destinationsList}
-
 Pickup Date: ${formatDate(newLoad.pickupDate)}
 Delivery Date: ${formatDate(newLoad.deliveryDate)}
-
 Pallet Count: ${newLoad.palletCount.toLocaleString()}
 Weight: ${newLoad.weight.toLocaleString()} lbs
 Equipment: ${newLoad.equipmentType}
@@ -132,11 +113,7 @@ Equipment: ${newLoad.equipmentType}
 Details:
 ${newLoad.details}
 --------------------------------------------------
-
-To place your bid, please follow the link to the loadboard below.
-
-Target-Distribution-Loadboard
-https://target-distribution-loadboard-770425821428.us-west1.run.app/
+To place your bid, please visit the loadboard.
 
 Thank you,
 Target Distribution`;
@@ -145,25 +122,39 @@ Target Distribution`;
     window.location.href = mailtoLink;
   };
 
-  const handlePostLoad = (newLoadData: Omit<Load, 'id' | 'bids'>) => {
-    const newLoad: Load = {
-      ...newLoadData,
-      id: `load-${Date.now()}`,
-      bids: [],
-    };
-    setLoads(prevLoads => [newLoad, ...prevLoads]);
-    setIsModalOpen(false);
-    sendNewLoadNotification(newLoad);
+  const handlePostLoad = async (newLoadData: Omit<Load, 'id' | 'bids'>) => {
+    const loadToAdd = { ...newLoadData, bids: [] };
+    try {
+      const docRef = await addDoc(collection(db, 'loads'), loadToAdd);
+      setIsModalOpen(false);
+      const notificationLoad: Load = { ...loadToAdd, id: docRef.id };
+      await sendNewLoadNotification(notificationLoad);
+    } catch (error) {
+      console.error("Error posting load: ", error);
+      alert("Failed to post load.");
+    }
   };
 
-  const handleUpdateLoad = (updatedLoad: Load) => {
-    setLoads(prevLoads => prevLoads.map(load => (load.id === updatedLoad.id ? updatedLoad : load)));
-    setIsModalOpen(false);
-    setEditingLoad(null);
+  const handleUpdateLoad = async (updatedLoad: Load) => {
+    try {
+      const { id, ...loadData } = updatedLoad;
+      const loadRef = doc(db, 'loads', id);
+      await updateDoc(loadRef, loadData);
+      setIsModalOpen(false);
+      setEditingLoad(null);
+    } catch (error) {
+      console.error("Error updating load: ", error);
+      alert("Failed to update load.");
+    }
   };
 
-  const handleRemoveLoad = (loadId: string) => {
-    setLoads(prevLoads => prevLoads.filter(load => load.id !== loadId));
+  const handleRemoveLoad = async (loadId: string) => {
+    try {
+      await deleteDoc(doc(db, 'loads', loadId));
+    } catch (error) {
+      console.error("Error removing load: ", error);
+      alert("Failed to remove load.");
+    }
   };
 
   const handleOpenEditModal = (load: Load) => {
@@ -171,30 +162,34 @@ Target Distribution`;
     setIsModalOpen(true);
   };
   
-  const handleLogin = (email: string, password: string) => {
-    // This is a mock login. In a real app, you'd verify against a server.
-    if (email.toLowerCase() === 'admin@targetdistribution.com' && password === 'password123') {
-      setIsLoggedIn(true);
-      setIsAdmin(true);
+  const handleLogin = async (email: string, password: string) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
       setIsLoginModalOpen(false);
-    } else if (password === 'carrier123') { // Simple login for carriers to view bids
-      setIsLoggedIn(true);
-      setIsAdmin(false);
-      setIsLoginModalOpen(false);
-    }
-     else {
-      alert('Invalid credentials. Hint: use admin@targetdistribution.com / password123 for admin, or any email / carrier123 for carrier.');
+    } catch (error) {
+      alert('Invalid credentials. Please try again.');
     }
   };
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setIsAdmin(false);
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
 
   const handlePromptLogin = () => {
     setIsLoginModalOpen(true);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-100 dark:bg-gray-900">
+        <div className="text-xl font-semibold text-gray-700 dark:text-gray-300">Loading Loadboard...</div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 font-sans transition-colors duration-300`}>

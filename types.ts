@@ -3,6 +3,7 @@ export interface Bid {
   carrierName: string;
   amount: number;
   timestamp: string;
+  daysInTransit?: number;
 }
 
 export interface Load {

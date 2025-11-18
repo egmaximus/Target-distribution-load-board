@@ -1,13 +1,13 @@
 
 import * as React from 'react';
-import type { Load } from '../types.ts';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { db } from '../firebase-config.ts';
+import type { Load, Bid } from '../types.ts';
 import { ChevronDownIcon } from './icons/ChevronDownIcon.tsx';
 import { TruckIcon } from './icons/TruckIcon.tsx';
 import { LocationMarkerIcon } from './icons/LocationMarkerIcon.tsx';
 
 // --- Distance Calculation Utilities ---
-
-// A mock database of coordinates for known locations.
 const MOCK_COORDINATES: { [key: string]: { lat: number; lon: number } } = {
   'new york, ny': { lat: 40.7128, lon: -74.0060 },
   'los angeles, ca': { lat: 34.0522, lon: -118.2437 },
@@ -24,40 +24,23 @@ const MOCK_COORDINATES: { [key: string]: { lat: number; lon: number } } = {
   'west palm beach, fl': { lat: 26.7153, lon: -80.0534 },
 };
 
-/**
- * Simulates geocoding an address by looking up a known city/state in the MOCK_COORDINATES map.
- * @param address - The full address string.
- * @returns A promise that resolves to a coordinate object or null if not found.
- */
 const mockGeocode = async (address: string): Promise<{ lat: number; lon: number } | null> => {
   if (!address) return null;
   const normalizedAddress = address.toLowerCase();
   for (const key in MOCK_COORDINATES) {
-    if (normalizedAddress.includes(key)) {
-      return MOCK_COORDINATES[key];
-    }
+    if (normalizedAddress.includes(key)) return MOCK_COORDINATES[key];
   }
   return null;
 };
 
-/**
- * Calculates the distance between two geographical points using the Haversine formula.
- * @param coords1 - The first coordinate object { lat, lon }.
- * @param coords2 - The second coordinate object { lat, lon }.
- * @returns The distance in miles.
- */
 const calculateDistance = (coords1: { lat: number; lon: number }, coords2: { lat: number; lon: number }): number => {
-  const R = 3959; // Radius of the Earth in miles
+  const R = 3959; // Earth radius in miles
   const dLat = (coords2.lat - coords1.lat) * (Math.PI / 180);
   const dLon = (coords2.lon - coords1.lon) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(coords1.lat * (Math.PI / 180)) * Math.cos(coords2.lat * (Math.PI / 180)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(coords1.lat * (Math.PI / 180)) * Math.cos(coords2.lat * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
-
 
 interface LoadItemProps {
   load: Load;
@@ -76,46 +59,22 @@ const LoadItem: React.FC<LoadItemProps> = ({ load: rawLoad, isLoggedIn, isAdmin,
   const [error, setError] = React.useState('');
   const [distance, setDistance] = React.useState<number | 'loading' | 'error' | null>(null);
 
-  // Destructure with default values to prevent crashes from malformed load objects.
-  const { 
-    id,
-    itemDescription = 'N/A',
-    referenceNumber,
-    origin = 'N/A',
-    destinations = [],
-    pickupDate = '',
-    deliveryDate = '',
-    palletCount = 0,
-    weight = 0,
-    equipmentType = 'N/A',
-    details = '',
-    bids = [],
-    appointmentDate,
-    appointmentTime,
-    appointmentNumber
-  } = rawLoad || {};
-
+  const { id, itemDescription = 'N/A', referenceNumber, origin = 'N/A', destinations = [], pickupDate = '', deliveryDate = '', palletCount = 0, weight = 0, equipmentType = 'N/A', details = '', bids = [], appointmentDate, appointmentTime, appointmentNumber } = rawLoad || {};
 
   React.useEffect(() => {
-    // Only calculate distance if the panel is expanded and we haven't calculated it before.
     if (isExpanded && distance === null) {
       setDistance('loading');
-      
       const getDistance = async () => {
         try {
-          // Simulate a network request to make the loading state visible
           await new Promise(resolve => setTimeout(resolve, 300));
-
           const originCoords = await mockGeocode(origin);
           const destCoordsPromises = destinations.map(d => mockGeocode(d));
           const destCoords = (await Promise.all(destCoordsPromises)).filter(c => c !== null) as { lat: number; lon: number }[];
-          
           if (originCoords && destCoords.length > 0) {
-            let totalDistance = 0;
-            let lastCoords = originCoords;
+            let totalDistance = 0, lastCoords = originCoords;
             for (const coord of destCoords) {
-                totalDistance += calculateDistance(lastCoords, coord);
-                lastCoords = coord;
+              totalDistance += calculateDistance(lastCoords, coord);
+              lastCoords = coord;
             }
             setDistance(totalDistance);
           } else {
@@ -126,320 +85,163 @@ const LoadItem: React.FC<LoadItemProps> = ({ load: rawLoad, isLoggedIn, isAdmin,
           setDistance('error');
         }
       };
-
       getDistance();
     }
   }, [isExpanded, origin, destinations, distance]);
 
-
   const sortedBids = [...bids].sort((a, b) => a.amount - b.amount);
   const lowestBid = sortedBids.length > 0 ? sortedBids[0].amount : null;
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    // Adding a time component to ensure UTC date is parsed correctly
-    return new Date(`${dateString}T00:00:00`).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  const formatDate = (dateString: string) => dateString ? new Date(`${dateString}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 
   const formatLocation = (location: string) => {
     if (!location) return '';
-    // Check if it's a full street address by looking for numbers at the start
     if (/^\d/.test(location)) {
       const parts = location.split(',');
       if (parts.length >= 3) {
-        // e.g., ["3487 South Preston Highway", " Lebanon Junction", " KY 40150"] -> "Lebanon Junction, KY"
         const stateZip = parts[2].trim().split(' ');
         return `${parts[1].trim()}, ${stateZip[0]}`;
       }
     }
-    // Otherwise, assume it's "City, State" and return as is
     return location;
   };
 
-  const handleBidSubmit = (e: React.FormEvent) => {
+  const handleBidSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isLoggedIn) {
+      onPromptLogin();
+      return;
+    }
     const amount = parseFloat(bidAmount);
     const transitDays = parseInt(daysInTransit, 10);
-   
-    if (!carrierName.trim()) {
-        setError('Please enter your company name.');
-        return;
-    }
-    if (isNaN(amount) || amount <= 0) {
-      setError('Please enter a valid bid amount.');
-      return;
-    }
-    if (isNaN(transitDays) || transitDays <= 0) {
-      setError('Please enter a valid number of transit days.');
-      return;
-    }
+    if (!carrierName.trim()) { setError('Please enter your company name.'); return; }
+    if (isNaN(amount) || amount <= 0) { setError('Please enter a valid bid amount.'); return; }
+    if (isNaN(transitDays) || transitDays <= 0) { setError('Please enter a valid number of transit days.'); return; }
     setError('');
 
-    const recipient = 'OMorales@targetdistribution.com';
-    const subject = `Bid for Load #${referenceNumber || id}: ${formatLocation(origin)} to ${formatLocation(destinations[0] || '')}${destinations.length > 1 ? ' (+ multi-stop)' : ''}`;
-    const destinationsText = destinations.map((d, i) => `Destination ${i + 1}: ${d}`).join('\n');
-   
-    const body = `We can move this shipment for Bid Amount: ${formatCurrency(amount, false)}
-Days In Transit: ${transitDays}
+    const newBid: Bid = {
+      id: `bid-${Date.now()}`,
+      carrierName: carrierName.trim(),
+      amount: amount,
+      timestamp: new Date().toISOString(),
+      daysInTransit: transitDays
+    };
 
-Reference #: ${referenceNumber || 'N/A'}
-Origin: ${origin}
-${destinationsText}
-Pickup Date: ${formatDate(pickupDate)}
-Delivery Date: ${formatDate(deliveryDate)}
-Equipment: ${equipmentType}
-Pallet Count: ${palletCount}
-Weight: ${weight.toLocaleString()} lbs
-Details: ${details}
-
-Thank you,
-${carrierName.trim()}
-`;
-
-    const mailtoLink = `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-   
-    window.location.href = mailtoLink;
-
-    setBidAmount('');
-    setCarrierName('');
-    setDaysInTransit('');
+    try {
+      const loadRef = doc(db, 'loads', id);
+      await updateDoc(loadRef, { bids: arrayUnion(newBid) });
+      setBidAmount('');
+      setCarrierName('');
+      setDaysInTransit('');
+    } catch (err) {
+      console.error("Error submitting bid:", err);
+      setError("Failed to submit bid. Please try again.");
+    }
   };
-
 
   const formatTime = (timeString: string) => {
     if (!timeString) return '';
     const [hours, minutes] = timeString.split(':');
-    const h = parseInt(hours, 10);
-    const m = parseInt(minutes, 10);
+    const h = parseInt(hours, 10), m = parseInt(minutes, 10);
     const ampm = h >= 12 ? 'PM' : 'AM';
     const formattedHours = h % 12 === 0 ? 12 : h % 12;
-    const formattedMinutes = m < 10 ? `0${m}` : m;
-    return `${formattedHours}:${formattedMinutes} ${ampm}`;
+    return `${formattedHours}:${m < 10 ? `0${m}` : m} ${ampm}`;
   };
 
-  const formatCurrency = (amount: number | null, isDisplay = true): React.ReactNode | string => {
-    if (amount === null) {
-        return isDisplay ? <span className="text-gray-500 dark:text-gray-400 font-semibold">No Bids</span> : 'No Bids';
-    }
+  const formatCurrency = (amount: number | null): React.ReactNode => {
+    if (amount === null) return <span className="text-gray-500 dark:text-gray-400 font-semibold">No Bids</span>;
     const formattedAmount = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount);
-   
-    if (!isDisplay) {
-        return formattedAmount;
-    }
-
     const blurClasses = !isLoggedIn ? 'filter blur-sm transition-all cursor-pointer' : '';
     const handleClick = !isLoggedIn ? onPromptLogin : undefined;
-
     const isLowest = amount === lowestBid;
-
-    if (isLowest) {
-      return (
-        <span
-          onClick={handleClick}
-          className={`px-2 py-1 rounded-md bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 font-bold text-lg ${blurClasses}`}
-        >
-            {formattedAmount}
-        </span>
-      );
-    }
-    return (
-        <span onClick={handleClick} className={`font-semibold text-gray-700 dark:text-gray-300 ${blurClasses}`}>
-            {formattedAmount}
-        </span>
-    );
+    const baseClasses = `px-2 py-1 rounded-md font-bold ${blurClasses}`;
+    if (isLowest) return <span onClick={handleClick} className={`${baseClasses} bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 text-lg`}>{formattedAmount}</span>;
+    return <span onClick={handleClick} className={`font-semibold text-gray-700 dark:text-gray-300 ${blurClasses}`}>{formattedAmount}</span>;
   };
 
-  if (!id) return null; // Don't render if the load is invalid
+  if (!id) return null;
 
   return (
     <div className="md:border-b-0">
-        {/* Main Row */}
-        <div
-            className="grid grid-cols-12 gap-4 p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 items-center"
-            onClick={() => setIsExpanded(!isExpanded)}
-            title={isExpanded ? 'Hide Details' : 'Show Details'}
-        >
-            <div className="col-span-12 md:col-span-4 flex flex-col space-y-2">
-                 <div className="flex items-center space-x-2 text-gray-800 dark:text-gray-100">
-                    <LocationMarkerIcon className="h-5 w-5 text-green-500 flex-shrink-0" />
-                    <span className="font-semibold">{formatLocation(origin)}</span>
-                    <span className="text-gray-400 dark:text-gray-500 font-light mx-2">&rarr;</span>
-                    <span className="font-semibold">
-                        {formatLocation(destinations[0] || '')}
-                        {destinations.length > 1 && (
-                            <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">
-                                (+{destinations.length - 1})
-                            </span>
-                        )}
-                    </span>
-                 </div>
-                 <div className="text-sm text-gray-500 dark:text-gray-400 md:hidden">Pickup: {formatDate(pickupDate)}</div>
-            </div>
-
-            <div className="hidden md:flex md:col-span-2 items-center text-gray-700 dark:text-gray-300">
-                {formatDate(pickupDate)}
-            </div>
-
-            <div className="hidden md:flex md:col-span-2 items-center text-gray-700 dark:text-gray-300 space-x-2">
-                <TruckIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-                <span>{equipmentType}</span>
-            </div>
-
-            <div className="col-span-6 md:col-span-2 flex flex-col items-end">
-                {formatCurrency(lowestBid)}
-                {bids.length > 0 && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{bids.length} bids</span>
-                )}
-            </div>
-             <div className="col-span-6 md:col-span-2 flex justify-center items-center">
-                <span className="text-sm font-semibold text-red-600 md:hidden mr-4">Details</span>
-                <ChevronDownIcon className={`h-6 w-6 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-            </div>
+      <div className="grid grid-cols-12 gap-4 p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 items-center" onClick={() => setIsExpanded(!isExpanded)} title={isExpanded ? 'Hide Details' : 'Show Details'}>
+        <div className="col-span-12 md:col-span-4 flex flex-col space-y-2">
+          <div className="flex items-center space-x-2 text-gray-800 dark:text-gray-100">
+            <LocationMarkerIcon className="h-5 w-5 text-green-500 flex-shrink-0" />
+            <span className="font-semibold">{formatLocation(origin)}</span>
+            <span className="text-gray-400 dark:text-gray-500 font-light mx-2">&rarr;</span>
+            <span className="font-semibold">{formatLocation(destinations[0] || '')}{destinations.length > 1 && <span className="text-gray-500 dark:text-gray-400 font-normal ml-1">(+{destinations.length - 1})</span>}</span>
+          </div>
+          <div className="text-sm text-gray-500 dark:text-gray-400 md:hidden">Pickup: {formatDate(pickupDate)}</div>
         </div>
-
-        {/* Expanded Section */}
-        {isExpanded && (
-            <div className="bg-gray-50 dark:bg-gray-800/50 p-6 md:grid md:grid-cols-12 gap-8">
-                <div className="md:col-span-5 mb-6 md:mb-0">
-                    <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-bold text-gray-800 dark:text-gray-100">Load Details</h4>
-                        {isLoggedIn && isAdmin && (
-                            <div className="flex items-center space-x-2">
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onEditLoad(rawLoad);
-                                    }}
-                                    className="bg-orange-100 text-orange-700 text-xs font-semibold px-2 py-1 rounded-md hover:bg-orange-200 dark:bg-orange-900/50 dark:text-orange-300 dark:hover:bg-orange-900/80 transition-colors"
-                                    aria-label={`Edit load ${referenceNumber || id}`}
-                                >
-                                    Edit Load
-                                </button>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (window.confirm('Are you sure you want to remove this load?')) {
-                                            onRemoveLoad(id);
-                                        }
-                                    }}
-                                    className="bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded-md hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/80 transition-colors"
-                                    aria-label={`Remove load ${referenceNumber || id}`}
-                                >
-                                    Remove Load
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                    <ul className="space-y-2 text-gray-700 dark:text-gray-300">
-                        <li><strong className="dark:text-gray-100">Item:</strong> {itemDescription}</li>
-                        {referenceNumber && <li><strong className="dark:text-gray-100">Reference #:</strong> {referenceNumber}</li>}
-                        <li><strong className="dark:text-gray-100">Origin:</strong> {origin}</li>
-                        <li>
-                            <strong className="dark:text-gray-100">Destinations:</strong>
-                            <ul className="list-disc list-inside pl-4">
-                                {destinations.map((dest, index) => (
-                                    <li key={index}>{dest}</li>
-                                ))}
-                            </ul>
-                        </li>
-                        <li><strong className="dark:text-gray-100">Weight:</strong> {weight.toLocaleString()} lbs</li>
-                        <li><strong className="dark:text-gray-100">Pallet Count:</strong> {palletCount.toLocaleString()}</li>
-                        <li><strong className="dark:text-gray-100">Delivery Date:</strong> {formatDate(deliveryDate)}</li>
-                        {/* Distance Calculation Display */}
-                        {distance !== null && (
-                          <li>
-                            <strong className="dark:text-gray-100">Distance:</strong>
-                            {' '}
-                            {distance === 'loading' && <span className="italic text-gray-500 dark:text-gray-400">Calculating...</span>}
-                            {typeof distance === 'number' && <span>~{Math.round(distance).toLocaleString()} miles</span>}
-                            {distance === 'error' && <span className="italic text-gray-500 dark:text-gray-400">Not available</span>}
-                          </li>
-                        )}
-                        {appointmentDate && (
-                            <li><strong className="dark:text-gray-100">Appointment:</strong> {formatDate(appointmentDate)}
-                                {appointmentTime && ` at ${formatTime(appointmentTime)}`}
-                            </li>
-                        )}
-                        {appointmentNumber && (
-                             <li><strong className="dark:text-gray-100">Appointment Number:</strong> {appointmentNumber}</li>
-                        )}
-                        <li className="pt-2">
-                            <p className="text-sm italic text-gray-600 dark:text-gray-400">{details}</p>
-                        </li>
-                    </ul>
+        <div className="hidden md:flex md:col-span-2 items-center text-gray-700 dark:text-gray-300">{formatDate(pickupDate)}</div>
+        <div className="hidden md:flex md:col-span-2 items-center text-gray-700 dark:text-gray-300 space-x-2"><TruckIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" /><span>{equipmentType}</span></div>
+        <div className="col-span-6 md:col-span-2 flex flex-col items-end">{formatCurrency(lowestBid)}{bids.length > 0 && <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{bids.length} bids</span>}</div>
+        <div className="col-span-6 md:col-span-2 flex justify-center items-center"><span className="text-sm font-semibold text-red-600 md:hidden mr-4">Details</span><ChevronDownIcon className={`h-6 w-6 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} /></div>
+      </div>
+      {isExpanded && (
+        <div className="bg-gray-50 dark:bg-gray-800/50 p-6 md:grid md:grid-cols-12 gap-8">
+          <div className="md:col-span-5 mb-6 md:mb-0">
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="font-bold text-gray-800 dark:text-gray-100">Load Details</h4>
+              {isLoggedIn && isAdmin && (
+                <div className="flex items-center space-x-2">
+                  <button onClick={(e) => { e.stopPropagation(); onEditLoad(rawLoad); }} className="bg-orange-100 text-orange-700 text-xs font-semibold px-2 py-1 rounded-md hover:bg-orange-200 dark:bg-orange-900/50 dark:text-orange-300 dark:hover:bg-orange-900/80 transition-colors" aria-label={`Edit load ${referenceNumber || id}`}>Edit</button>
+                  <button onClick={(e) => { e.stopPropagation(); if (window.confirm('Are you sure you want to remove this load?')) { onRemoveLoad(id); } }} className="bg-red-100 text-red-700 text-xs font-semibold px-2 py-1 rounded-md hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/80 transition-colors" aria-label={`Remove load ${referenceNumber || id}`}>Remove</button>
                 </div>
-
-                <div className="md:col-span-4 mb-6 md:mb-0">
-                     <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Bid History ({bids.length})</h4>
-                    {bids.length > 0 ? (
-                        <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
-                            {sortedBids.map(bid => (
-                                <div key={bid.id} className="flex justify-between items-center bg-white dark:bg-gray-700 p-2 rounded-md border dark:border-gray-600">
-                                    <span className="text-sm text-gray-600 dark:text-gray-300">{bid.carrierName}</span>
-                                    {formatCurrency(bid.amount)}
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">No bids yet. Be the first!</p>
-                    )}
-                </div>
-
-                <div className="md:col-span-3">
-                    <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Place Your Bid</h4>
-                    <form onSubmit={handleBidSubmit} className="flex flex-col space-y-3">
-                        <input
-                            type="text"
-                            value={carrierName}
-                            onChange={(e) => {
-                                setCarrierName(e.target.value);
-                                if(error) setError('');
-                            }}
-                            placeholder="Your Company Name"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-red-500 dark:focus:border-red-500"
-                            required
-                        />
-                        <div className="relative">
-                            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 dark:text-gray-400">$</span>
-                             <input
-                                type="number"
-                                value={bidAmount}
-                                onChange={(e) => {
-                                    setBidAmount(e.target.value);
-                                    if(error) setError('');
-                                }}
-                                placeholder="Your Bid"
-                                className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-red-500 dark:focus:border-red-500"
-                                step="1"
-                                min="0"
-                                required
-                            />
-                        </div>
-                        <input
-                            type="number"
-                            value={daysInTransit}
-                            onChange={(e) => {
-                                setDaysInTransit(e.target.value);
-                                if(error) setError('');
-                            }}
-                            placeholder="Days In Transit"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-red-500 dark:focus:border-red-500"
-                            step="1"
-                            min="0"
-                            required
-                        />
-                        {error && <p className="text-red-500 text-xs">{error}</p>}
-                        <button type="submit" className="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150">
-                            Submit Bid
-                        </button>
-                    </form>
-                </div>
+              )}
             </div>
-        )}
+            <ul className="space-y-2 text-gray-700 dark:text-gray-300">
+              <li><strong className="dark:text-gray-100">Item:</strong> {itemDescription}</li>
+              {referenceNumber && <li><strong className="dark:text-gray-100">Ref #:</strong> {referenceNumber}</li>}
+              <li><strong className="dark:text-gray-100">Origin:</strong> {origin}</li>
+              <li><strong className="dark:text-gray-100">Destinations:</strong><ul className="list-disc list-inside pl-4">{destinations.map((dest, index) => <li key={index}>{dest}</li>)}</ul></li>
+              <li><strong className="dark:text-gray-100">Weight:</strong> {weight.toLocaleString()} lbs</li>
+              <li><strong className="dark:text-gray-100">Pallets:</strong> {palletCount.toLocaleString()}</li>
+              <li><strong className="dark:text-gray-100">Delivery Date:</strong> {formatDate(deliveryDate)}</li>
+              {distance !== null && <li><strong className="dark:text-gray-100">Distance:</strong> {distance === 'loading' ? <span className="italic text-gray-500">Calculating...</span> : typeof distance === 'number' ? <span>~{Math.round(distance).toLocaleString()} miles</span> : <span className="italic text-red-500">Not available</span>}</li>}
+              {appointmentDate && <li><strong className="dark:text-gray-100">Appt:</strong> {formatDate(appointmentDate)}{appointmentTime && ` at ${formatTime(appointmentTime)}`}</li>}
+              {appointmentNumber && <li><strong className="dark:text-gray-100">Appt #:</strong> {appointmentNumber}</li>}
+              <li className="pt-2"><p className="text-sm italic text-gray-600 dark:text-gray-400">{details}</p></li>
+            </ul>
+          </div>
+          <div className="md:col-span-4 mb-6 md:mb-0">
+            <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Bid History ({bids.length})</h4>
+            {isLoggedIn ? (
+                bids.length > 0 ? (
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                    {sortedBids.map(bid => (
+                    <div key={bid.id} className="flex justify-between items-center bg-white dark:bg-gray-700 p-2 rounded-md border dark:border-gray-600">
+                        <div>
+                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(bid.amount)}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">({bid.daysInTransit} days)</span>
+                        </div>
+                        <span className="text-sm text-gray-600 dark:text-gray-300 text-right">{bid.carrierName}</span>
+                    </div>
+                    ))}
+                </div>
+                ) : <p className="text-sm text-gray-500 dark:text-gray-400">No bids yet. Be the first!</p>
+            ) : (
+                <div className="text-center p-4 border-2 border-dashed rounded-lg dark:border-gray-600">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <button onClick={onPromptLogin} className="font-semibold text-red-600 dark:text-red-400 hover:underline">Log in</button> to view bid history.
+                    </p>
+                </div>
+            )}
+          </div>
+          <div className="md:col-span-3">
+            <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Place Your Bid</h4>
+            <form onSubmit={handleBidSubmit} className="flex flex-col space-y-3">
+              <input type="text" value={carrierName} onChange={(e) => { setCarrierName(e.target.value); if (error) setError(''); }} placeholder="Your Company Name" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" required />
+              <div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 dark:text-gray-400">$</span><input type="number" value={bidAmount} onChange={(e) => { setBidAmount(e.target.value); if (error) setError(''); }} placeholder="Your Bid" className="w-full pl-7 pr-2 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" step="1" min="0" required /></div>
+              <input type="number" value={daysInTransit} onChange={(e) => { setDaysInTransit(e.target.value); if (error) setError(''); }} placeholder="Days In Transit" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" step="1" min="0" required />
+              {error && <p className="text-red-500 text-xs">{error}</p>}
+              <button type="submit" className="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 disabled:opacity-50" disabled={!isLoggedIn}>
+                {isLoggedIn ? 'Submit Bid' : 'Log In to Bid'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -6,10 +6,12 @@ const SubscriptionForm: React.FC = () => {
     const [email, setEmail] = React.useState('');
     const [message, setMessage] = React.useState('');
     const [isSuccess, setIsSuccess] = React.useState(false);
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const result = addCarrierEmail(email);
+        setIsSubmitting(true);
+        const result = await addCarrierEmail(email);
 
         setMessage(result.message);
         setIsSuccess(result.success);
@@ -17,6 +19,7 @@ const SubscriptionForm: React.FC = () => {
         if (result.success) {
             setEmail('');
         }
+        setIsSubmitting(false);
 
         // Message disappears after 5 seconds
         setTimeout(() => {
@@ -45,9 +48,10 @@ const SubscriptionForm: React.FC = () => {
                 />
                 <button
                     type="submit"
-                    className="bg-red-600 text-white font-semibold px-6 py-2 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150"
+                    className="bg-red-600 text-white font-semibold px-6 py-2 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 disabled:opacity-75"
+                    disabled={isSubmitting}
                 >
-                    Subscribe
+                    {isSubmitting ? 'Subscribing...' : 'Subscribe'}
                 </button>
             </form>
             {message && (

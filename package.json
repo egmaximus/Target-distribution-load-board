@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "react": "beta",
-    "react-dom": "beta"
+    "react-dom": "beta",
+    "firebase": "^12.6.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
