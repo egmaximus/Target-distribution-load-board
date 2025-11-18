@@ -1,7 +1,7 @@
 
 import * as React from 'react';
-import { XIcon } from './icons/XIcon';
-import { TargetIcon } from './icons/TargetIcon';
+import { XIcon } from './icons/XIcon.tsx';
+import { TargetIcon } from './icons/TargetIcon.tsx';
 
 interface LoginModalProps {
   isOpen: boolean;

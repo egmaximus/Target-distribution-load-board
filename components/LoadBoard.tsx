@@ -1,7 +1,7 @@
 
 import * as React from 'react';
-import type { Load } from '../types';
-import LoadItem from './LoadItem';
+import type { Load } from '../types.ts';
+import LoadItem from './LoadItem.tsx';
 
 interface LoadBoardProps {
   loads: Load[];

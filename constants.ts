@@ -1,4 +1,4 @@
-import type { Load } from './types';
+import type { Load } from './types.ts';
 
 // Local storage keys
 export const LOADS_STORAGE_KEY = 'td_loads';

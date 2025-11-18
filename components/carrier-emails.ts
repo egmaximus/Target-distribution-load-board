@@ -2,7 +2,7 @@
 // This file manages the list of carrier email addresses for notifications.
 // It uses the browser's local storage to persist the list of subscribers.
 
-import { CARRIER_EMAILS_STORAGE_KEY } from '../constants';
+import { CARRIER_EMAILS_STORAGE_KEY } from '../constants.ts';
 
 const DEFAULT_CARRIER_EMAILS: string[] = [
   'carrier1@example.com',

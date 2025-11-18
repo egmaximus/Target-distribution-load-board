@@ -1,13 +1,13 @@
 
 import * as React from 'react';
-import Header from './components/Header';
-import LoadBoard from './components/LoadBoard';
-import LoadBuilderModal from './components/LoadBuilderModal';
-import LoginModal from './components/LoginModal';
-import SubscriptionForm from './components/SubscriptionForm';
-import { MOCK_LOADS, LOADS_STORAGE_KEY } from './constants';
-import type { Load } from './types';
-import { getCarrierEmails } from './components/carrier-emails';
+import Header from './components/Header.tsx';
+import LoadBoard from './components/LoadBoard.tsx';
+import LoadBuilderModal from './components/LoadBuilderModal.tsx';
+import LoginModal from './components/LoginModal.tsx';
+import SubscriptionForm from './components/SubscriptionForm.tsx';
+import { MOCK_LOADS, LOADS_STORAGE_KEY } from './constants.ts';
+import type { Load } from './types.ts';
+import { getCarrierEmails } from './components/carrier-emails.ts';
 
 const App: React.FC = () => {
   const [loads, setLoads] = React.useState<Load[]>(() => {

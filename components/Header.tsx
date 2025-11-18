@@ -1,7 +1,7 @@
 
 import * as React from 'react';
-import { TargetIcon } from './icons/TargetIcon';
-import ThemeToggle from './ThemeToggle';
+import { TargetIcon } from './icons/TargetIcon.tsx';
+import ThemeToggle from './ThemeToggle.tsx';
 
 interface HeaderProps {
   onOpenPostLoadModal: () => void;

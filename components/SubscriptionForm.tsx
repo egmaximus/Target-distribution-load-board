@@ -1,6 +1,6 @@
 
 import * as React from 'react';
-import { addCarrierEmail } from './carrier-emails';
+import { addCarrierEmail } from './carrier-emails.ts';
 
 const SubscriptionForm: React.FC = () => {
     const [email, setEmail] = React.useState('');

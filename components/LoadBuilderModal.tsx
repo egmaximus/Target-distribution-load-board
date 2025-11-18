@@ -1,9 +1,9 @@
 
 import * as React from 'react';
-import type { Load } from '../types';
-import { XIcon } from './icons/XIcon';
-import { PREDEFINED_DESTINATIONS } from '../delivery-locations';
-import { PUBLICATION_NAMES } from './publication-names';
+import type { Load } from '../types.ts';
+import { XIcon } from './icons/XIcon.tsx';
+import { PREDEFINED_DESTINATIONS } from '../delivery-locations.ts';
+import { PUBLICATION_NAMES } from './publication-names.ts';
 
 interface LoadBuilderModalProps {
   isOpen: boolean;

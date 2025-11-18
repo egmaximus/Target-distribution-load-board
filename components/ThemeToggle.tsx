@@ -1,7 +1,7 @@
 
 import * as React from 'react';
-import { SunIcon } from './icons/SunIcon';
-import { MoonIcon } from './icons/MoonIcon';
+import { SunIcon } from './icons/SunIcon.tsx';
+import { MoonIcon } from './icons/MoonIcon.tsx';
 
 interface ThemeToggleProps {
   theme: 'light' | 'dark';

@@ -1,9 +1,9 @@
 
 import * as React from 'react';
-import type { Load } from '../types';
-import { ChevronDownIcon } from './icons/ChevronDownIcon';
-import { TruckIcon } from './icons/TruckIcon';
-import { LocationMarkerIcon } from './icons/LocationMarkerIcon';
+import type { Load } from '../types.ts';
+import { ChevronDownIcon } from './icons/ChevronDownIcon.tsx';
+import { TruckIcon } from './icons/TruckIcon.tsx';
+import { LocationMarkerIcon } from './icons/LocationMarkerIcon.tsx';
 
 // --- Distance Calculation Utilities ---
 
