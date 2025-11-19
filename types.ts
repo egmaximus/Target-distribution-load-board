@@ -13,6 +13,7 @@ export interface Load {
   referenceNumber?: string;
   origin: string;
   destinations: string[];
+  destinationRefs?: string[];
   pickupDate: string;
   deliveryDate: string;
   palletCount: number;

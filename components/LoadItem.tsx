@@ -162,8 +162,8 @@ const LoadItem: React.FC<LoadItemProps> = ({ load, isLoggedIn, isAdmin, onPrompt
     const subject = `Bid for Load #${load.referenceNumber || load.id}: ${formatLocation(load.origin)} to ${formatLocation(load.destinations[0])}`;
     
     const destinationsText = load.destinations.length > 1
-      ? `Destinations:\n${load.destinations.map(d => `- ${d}`).join('\n')}`
-      : `Destination: ${load.destinations[0]}`;
+      ? `Destinations:\n${load.destinations.map((d, i) => `- ${d}${load.destinationRefs?.[i] ? ` (Ref: ${load.destinationRefs[i]})` : ''}`).join('\n')}`
+      : `Destination: ${load.destinations[0]}${load.destinationRefs?.[0] ? ` (Ref: ${load.destinationRefs[0]})` : ''}`;
       
     const itemsText = load.itemDescriptions.length > 1
       ? `Items:\n${load.itemDescriptions.map(d => `- ${d}`).join('\n')}`
@@ -181,7 +181,7 @@ Delivery Date: ${formatDate(load.deliveryDate)}
 Equipment: ${load.equipmentType}
 Pallet Count: ${load.palletCount}
 Weight: ${load.weight.toLocaleString()} lbs
-Details: ${load.details}
+Notes: ${load.details}
 
 Thank you,
 ${carrierName.trim()}
@@ -200,19 +200,21 @@ ${carrierName.trim()}
     if (!isAdmin) return;
 
     const carrierEmail = bid.carrierEmail || '';
-    const subject = `Rate Confirmation: Load #${load.referenceNumber || load.id} - ${formatLocation(load.origin)} to ${formatLocation(load.destinations[load.destinations.length - 1])}`;
+    const subject = `Rate Confirmation: Load #${load.referenceNumber || load.id} Awarded`;
     
     const itemsText = load.itemDescriptions.length > 1
       ? `Items:\n${load.itemDescriptions.map(d => `- ${d}`).join('\n')}`
       : `Item: ${load.itemDescriptions[0]}`;
       
     const destinationsText = load.destinations.length > 1
-      ? `Destinations:\n${load.destinations.map(d => `- ${d}`).join('\n')}`
-      : `Destination: ${load.destinations[0]}`;
+      ? `Destinations:\n${load.destinations.map((d, i) => `- ${d}${load.destinationRefs?.[i] ? ` (Ref: ${load.destinationRefs[i]})` : ''}`).join('\n')}`
+      : `Destination: ${load.destinations[0]}${load.destinationRefs?.[0] ? ` (Ref: ${load.destinationRefs[0]})` : ''}`;
 
     const body = `Dear ${bid.carrierName},
 
-Congratulations! We are pleased to inform you that your bid of ${formatCurrency(bid.amount, false)} has been accepted for the following load:
+Congratulations! We are pleased to inform you that you have been awarded the freight load #${load.referenceNumber || load.id} at your bid rate of ${formatCurrency(bid.amount, false)}.
+
+Please review the load details below:
 
 Reference #: ${load.referenceNumber || 'N/A'}
 --------------------------------------------------
@@ -227,9 +229,12 @@ Delivery Date: ${formatDate(load.deliveryDate)}
 Equipment: ${load.equipmentType}
 Pallet Count: ${load.palletCount}
 Weight: ${load.weight.toLocaleString()} lbs
+Notes: ${load.details}
 --------------------------------------------------
 
-Please reply to this email to confirm receipt and provide driver information.
+Please reply to this email to confirm receipt and provide your driver's information to finalize the rate confirmation.
+
+We look forward to working with you.
 
 Best regards,
 
@@ -291,7 +296,14 @@ Target Distribution`;
             onClick={() => setIsExpanded(!isExpanded)}
             title={isExpanded ? 'Hide Details' : 'Show Details'}
         >
-            <div className="col-span-12 md:col-span-4 flex flex-col space-y-2">
+            {/* Reference Number */}
+            <div className="col-span-12 md:col-span-2 flex items-center">
+                <span className="md:hidden font-bold mr-2 text-gray-500 dark:text-gray-400">Ref:</span>
+                <span className="font-mono text-sm font-medium text-gray-700 dark:text-gray-200 truncate" title={load.referenceNumber}>{load.referenceNumber || 'N/A'}</span>
+            </div>
+
+            {/* Origin / Destination */}
+            <div className="col-span-12 md:col-span-3 flex flex-col space-y-2">
                  <div className="flex items-center space-x-2 text-gray-800 dark:text-gray-100 flex-wrap">
                     <LocationMarkerIcon className="h-5 w-5 text-green-500 flex-shrink-0" />
                     <span className="font-semibold">{formatLocation(load.origin)}</span>
@@ -306,22 +318,27 @@ Target Distribution`;
                  <div className="text-sm text-gray-500 dark:text-gray-400 md:hidden">Pickup: {formatDate(load.pickupDate)}</div>
             </div>
 
+            {/* Pickup Date */}
             <div className="hidden md:flex md:col-span-2 items-center text-gray-700 dark:text-gray-300">
                 {formatDate(load.pickupDate)}
             </div>
 
+            {/* Equipment */}
             <div className="hidden md:flex md:col-span-2 items-center text-gray-700 dark:text-gray-300 space-x-2">
                 <TruckIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-                <span>{load.equipmentType}</span>
+                <span className="truncate" title={load.equipmentType}>{load.equipmentType}</span>
             </div>
 
+            {/* Current Bid */}
             <div className="col-span-6 md:col-span-2 flex flex-col items-end">
                 {formatCurrency(lowestBid)}
                 {load.bids.length > 0 && (
                     <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{load.bids.length} bids</span>
                 )}
             </div>
-             <div className="col-span-6 md:col-span-2 flex justify-center items-center">
+             
+             {/* Actions */}
+             <div className="col-span-6 md:col-span-1 flex justify-center items-center">
                 <span className="text-sm font-semibold text-red-600 md:hidden mr-4">Details</span>
                 <ChevronDownIcon className={`h-6 w-6 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
             </div>
@@ -374,12 +391,24 @@ Target Distribution`;
                         {load.referenceNumber && <li><strong className="dark:text-gray-100">Reference #:</strong> {load.referenceNumber}</li>}
                         <li><strong className="dark:text-gray-100">Origin:</strong> {load.origin}</li>
                         {load.destinations.length === 1 ? (
-                          <li><strong className="dark:text-gray-100">Destination:</strong> {load.destinations[0]}</li>
+                          <li>
+                              <strong className="dark:text-gray-100">Destination:</strong> {load.destinations[0]}
+                              {load.destinationRefs && load.destinationRefs[0] && (
+                                  <span className="text-gray-500 text-xs ml-2 font-mono">(Ref: {load.destinationRefs[0]})</span>
+                              )}
+                          </li>
                         ) : (
                           <li>
                             <strong className="dark:text-gray-100">Destinations:</strong>
                             <ol className="list-decimal list-inside pl-2 mt-1 space-y-1">
-                              {load.destinations.map((dest, index) => <li key={index}>{dest}</li>)}
+                              {load.destinations.map((dest, index) => (
+                                  <li key={index}>
+                                      {dest}
+                                      {load.destinationRefs && load.destinationRefs[index] && (
+                                          <span className="text-gray-500 text-xs ml-2 font-mono">(Ref: {load.destinationRefs[index]})</span>
+                                      )}
+                                  </li>
+                              ))}
                             </ol>
                           </li>
                         )}
@@ -413,26 +442,66 @@ Target Distribution`;
                 <div className="md:col-span-4 mb-6 md:mb-0">
                      <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">
                          Bid History ({load.bids.length})
-                         {isAdmin && load.bids.length > 0 && <span className="block text-xs font-normal text-gray-500 mt-1">Click a bid to award load</span>}
                      </h4>
                     {load.bids.length > 0 ? (
-                        <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
-                            {sortedBids.map(bid => (
-                                <div 
-                                    key={bid.id} 
-                                    className={`flex justify-between items-center bg-white dark:bg-gray-700 p-2 rounded-md border dark:border-gray-600 ${isAdmin ? 'cursor-pointer hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors group' : ''}`}
-                                    onClick={() => isAdmin && handleSelectWinner(bid)}
-                                    title={isAdmin ? "Click to award load to this carrier" : ""}
-                                >
-                                    <div className="flex items-center space-x-2">
-                                        {isAdmin && (
-                                            <EnvelopeIcon className="h-4 w-4 text-gray-400 group-hover:text-green-600 transition-colors" />
-                                        )}
-                                        <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">{bid.carrierName}</span>
+                        <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                            {sortedBids.map((bid, index) => {
+                                const isLowest = index === 0;
+                                return (
+                                    <div 
+                                        key={bid.id} 
+                                        className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 rounded-lg border ${isLowest ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-white border-gray-200 dark:bg-gray-700 dark:border-gray-600'}`}
+                                    >
+                                        <div className="flex flex-col mb-2 sm:mb-0">
+                                            <div className="flex items-center space-x-2">
+                                                <span className="font-semibold text-sm text-gray-700 dark:text-gray-200">{bid.carrierName}</span>
+                                                {isAdmin && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleSelectWinner(bid);
+                                                        }}
+                                                        className="p-1 text-gray-400 hover:text-green-600 dark:text-gray-500 dark:hover:text-green-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-600"
+                                                        title="Award Load (Email Carrier)"
+                                                    >
+                                                        <EnvelopeIcon className="h-4 w-4" />
+                                                    </button>
+                                                )}
+                                                {isLowest && <span className="text-[10px] uppercase tracking-wide font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">Lowest</span>}
+                                            </div>
+                                             <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(bid.timestamp).toLocaleDateString()}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between w-full sm:w-auto space-x-4">
+                                            <div className="flex items-center space-x-2">
+                                                <span className="font-bold text-gray-800 dark:text-gray-100">{formatCurrency(bid.amount)}</span>
+                                                {isAdmin && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleSelectWinner(bid);
+                                                        }}
+                                                        className="p-1 text-gray-400 hover:text-green-600 dark:text-gray-500 dark:hover:text-green-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-600"
+                                                        title="Award Load (Email Carrier)"
+                                                    >
+                                                        <EnvelopeIcon className="h-4 w-4" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {isAdmin && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleSelectWinner(bid);
+                                                    }}
+                                                    className="text-xs bg-green-600 hover:bg-green-700 text-white font-medium px-3 py-1.5 rounded transition-colors shadow-sm whitespace-nowrap"
+                                                >
+                                                    Award Load
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                    {formatCurrency(bid.amount)}
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : (
                         <p className="text-sm text-gray-500 dark:text-gray-400">No bids yet. Be the first!</p>

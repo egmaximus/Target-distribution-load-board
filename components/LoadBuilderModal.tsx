@@ -1,3 +1,4 @@
+
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import type { Load } from '../types';
@@ -22,6 +23,7 @@ type DestinationForm = {
   selection: string;
   city: string;
   state: string;
+  referenceNumber: string;
 };
 
 const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, onPostLoad, onUpdateLoad, loadToEdit }) => {
@@ -45,7 +47,7 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
   const [formData, setFormData] = useState(initialFormState);
   const [itemDescriptions, setItemDescriptions] = useState<string[]>(['']);
   const [originSelection, setOriginSelection] = useState('');
-  const [destinations, setDestinations] = useState<DestinationForm[]>([{ selection: '', city: '', state: '' }]);
+  const [destinations, setDestinations] = useState<DestinationForm[]>([{ selection: '', city: '', state: '', referenceNumber: '' }]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -56,16 +58,18 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
       
       setItemDescriptions(loadToEdit.itemDescriptions.length > 0 ? [...loadToEdit.itemDescriptions] : ['']);
       
-      const dests: DestinationForm[] = loadToEdit.destinations.map(d => {
+      const dests: DestinationForm[] = loadToEdit.destinations.map((d, i) => {
         const inPredefined = Object.keys(PREDEFINED_DESTINATIONS).includes(d);
         const [city, state] = !inPredefined && d.includes(',') ? d.split(', ') : [!inPredefined ? d : '', ''];
+        const ref = loadToEdit.destinationRefs?.[i] || '';
         return {
           selection: inPredefined ? d : 'Other',
           city: city,
           state: state || '',
+          referenceNumber: ref,
         };
       });
-      setDestinations(dests.length ? dests : [{ selection: '', city: '', state: '' }]);
+      setDestinations(dests.length ? dests : [{ selection: '', city: '', state: '', referenceNumber: '' }]);
 
       const [originCity, originState] = !originInPredefined && loadToEdit.origin.includes(',') ? loadToEdit.origin.split(', ') : [!originInPredefined ? loadToEdit.origin : '', ''];
 
@@ -87,7 +91,7 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
       setFormData(initialFormState);
       setItemDescriptions(['']);
       setOriginSelection('');
-      setDestinations([{ selection: '', city: '', state: '' }]);
+      setDestinations([{ selection: '', city: '', state: '', referenceNumber: '' }]);
     }
   }, [isOpen, loadToEdit, isEditMode]);
 
@@ -128,7 +132,7 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
 
   const handleAddDestination = () => {
     if (destinations.length < 3) {
-      setDestinations([...destinations, { selection: '', city: '', state: '' }]);
+      setDestinations([...destinations, { selection: '', city: '', state: '', referenceNumber: '' }]);
     }
   };
 
@@ -151,6 +155,8 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
             : dest.selection
     ).filter(d => d.trim() && d.trim() !== ',');
     
+    const destinationRefs = destinations.map(dest => dest.referenceNumber);
+
     const validDescriptions = itemDescriptions.filter(d => d.trim() !== '');
 
     if (validDescriptions.length === 0) {
@@ -173,6 +179,7 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
       referenceNumber: formData.referenceNumber || undefined,
       origin: originValue,
       destinations: destinationValues,
+      destinationRefs: destinationRefs,
       pickupDate: formData.pickupDate,
       deliveryDate: formData.deliveryDate,
       palletCount: parseInt(formData.palletCount, 10),
@@ -329,6 +336,23 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
                       </button>
                     )}
                  </div>
+                
+                {/* NEW Reference Number Field */}
+                <div>
+                    <label htmlFor={`destinationRef-${index}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Destination Reference #
+                    </label>
+                    <input
+                        type="text"
+                        name={`destinationRef-${index}`}
+                        id={`destinationRef-${index}`}
+                        value={dest.referenceNumber}
+                        onChange={(e) => handleDestinationChange(index, 'referenceNumber', e.target.value)}
+                        className={inputStyles}
+                        placeholder="e.g., PO-998877"
+                    />
+                </div>
+
                 <select
                     name={`destinationSelection-${index}`}
                     id={`destinationSelection-${index}`}

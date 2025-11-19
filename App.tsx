@@ -84,10 +84,9 @@ const App: React.FC = () => {
       ? `Items:\n${newLoad.itemDescriptions.map(d => `- ${d}`).join('\n')}`
       : `Item: ${newLoad.itemDescriptions[0]}`;
 
-
     const destinationsText = newLoad.destinations.length > 1
-      ? `Destinations:\n${newLoad.destinations.map(d => `- ${d}`).join('\n')}`
-      : `Destination: ${newLoad.destinations[0]}`;
+      ? `Destinations:\n${newLoad.destinations.map((d, i) => `- ${d}${newLoad.destinationRefs?.[i] ? ` (Ref: ${newLoad.destinationRefs[i]})` : ''}`).join('\n')}`
+      : `Destination: ${newLoad.destinations[0]}${newLoad.destinationRefs?.[0] ? ` (Ref: ${newLoad.destinationRefs[0]})` : ''}`;
 
     const body = `A new load has been posted and is available for bidding.
 
@@ -106,7 +105,7 @@ Pallet Count: ${newLoad.palletCount.toLocaleString()}
 Weight: ${newLoad.weight.toLocaleString()} lbs
 Equipment: ${newLoad.equipmentType}
 --------------------------------------------------
-Details:
+Notes:
 ${newLoad.details}
 --------------------------------------------------
 
