@@ -1,7 +1,4 @@
-
 import * as React from 'react';
-
- 
 
 export const TargetIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 

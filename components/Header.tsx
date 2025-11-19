@@ -1,14 +1,12 @@
-
 import * as React from 'react';
-import { TargetIcon } from './icons/TargetIcon.tsx';
-import ThemeToggle from './ThemeToggle.tsx';
+import { TargetIcon } from './icons/TargetIcon';
+import ThemeToggle from './ThemeToggle';
 
 interface HeaderProps {
   onOpenPostLoadModal: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   isLoggedIn: boolean;
-  isAdmin: boolean;
   onOpenLoginModal: () => void;
   onLogout: () => void;
 }
@@ -18,7 +16,6 @@ const Header: React.FC<HeaderProps> = ({
   theme, 
   onToggleTheme,
   isLoggedIn,
-  isAdmin,
   onOpenLoginModal,
   onLogout
 }) => {
@@ -33,7 +30,7 @@ const Header: React.FC<HeaderProps> = ({
         </div>
         <div className="flex items-center space-x-4">
           <nav className="flex items-center space-x-4">
-            {isLoggedIn && isAdmin && (
+            {isLoggedIn && (
               <button
                 onClick={onOpenPostLoadModal}
                 aria-label="Post a Load"

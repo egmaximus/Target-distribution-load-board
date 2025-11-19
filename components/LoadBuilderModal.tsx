@@ -1,9 +1,9 @@
-
 import * as React from 'react';
-import type { Load } from '../types.ts';
-import { XIcon } from './icons/XIcon.tsx';
-import { PREDEFINED_DESTINATIONS } from '../delivery-locations.ts';
-import { PUBLICATION_NAMES } from './publication-names.ts';
+import { useState, useEffect } from 'react';
+import type { Load } from '../types';
+import { XIcon } from './icons/XIcon';
+import { PREDEFINED_DESTINATIONS } from '../delivery-locations';
+import { PUBLICATION_NAMES } from './publication-names';
 
 interface LoadBuilderModalProps {
   isOpen: boolean;
@@ -18,11 +18,16 @@ const PREDEFINED_ORIGINS = {
   '8420 Resource Rd, West Palm Beach, FL 33404': 'Target Distribution Warehouse'
 };
 
+type DestinationForm = {
+  selection: string;
+  city: string;
+  state: string;
+};
+
 const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, onPostLoad, onUpdateLoad, loadToEdit }) => {
   const isEditMode = !!loadToEdit;
 
   const initialFormState = {
-    itemDescription: '',
     referenceNumber: 'TR-',
     originCity: '',
     originState: '',
@@ -37,34 +42,34 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
     appointmentNumber: ''
   };
 
-  const [formData, setFormData] = React.useState(initialFormState);
-  const [originSelection, setOriginSelection] = React.useState('');
-  const [destinations, setDestinations] = React.useState([{ selection: '', city: '', state: '' }]);
+  const [formData, setFormData] = useState(initialFormState);
+  const [itemDescriptions, setItemDescriptions] = useState<string[]>(['']);
+  const [originSelection, setOriginSelection] = useState('');
+  const [destinations, setDestinations] = useState<DestinationForm[]>([{ selection: '', city: '', state: '' }]);
 
-
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isOpen) return;
 
     if (isEditMode && loadToEdit) {
       const originInPredefined = Object.keys(PREDEFINED_ORIGINS).includes(loadToEdit.origin);
-      
       setOriginSelection(originInPredefined ? loadToEdit.origin : 'Other');
-
-      const [originCity, originState] = !originInPredefined && loadToEdit.origin.includes(',') ? loadToEdit.origin.split(', ').map(s => s.trim()) : [!originInPredefined ? loadToEdit.origin : '', ''];
-
-      const loadedDestinations = loadToEdit.destinations.map(d => {
-        const isInPredefined = Object.keys(PREDEFINED_DESTINATIONS).includes(d);
-        const [city, state = ''] = !isInPredefined && d.includes(',') ? d.split(', ').map(s => s.trim()) : [!isInPredefined ? d : '', ''];
+      
+      setItemDescriptions(loadToEdit.itemDescriptions.length > 0 ? [...loadToEdit.itemDescriptions] : ['']);
+      
+      const dests: DestinationForm[] = loadToEdit.destinations.map(d => {
+        const inPredefined = Object.keys(PREDEFINED_DESTINATIONS).includes(d);
+        const [city, state] = !inPredefined && d.includes(',') ? d.split(', ') : [!inPredefined ? d : '', ''];
         return {
-            selection: isInPredefined ? d : 'Other',
-            city,
-            state
-        }
+          selection: inPredefined ? d : 'Other',
+          city: city,
+          state: state || '',
+        };
       });
-      setDestinations(loadedDestinations);
+      setDestinations(dests.length ? dests : [{ selection: '', city: '', state: '' }]);
+
+      const [originCity, originState] = !originInPredefined && loadToEdit.origin.includes(',') ? loadToEdit.origin.split(', ') : [!originInPredefined ? loadToEdit.origin : '', ''];
 
       setFormData({
-        itemDescription: loadToEdit.itemDescription,
         referenceNumber: loadToEdit.referenceNumber || 'TR-',
         originCity,
         originState,
@@ -80,6 +85,7 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
       });
     } else {
       setFormData(initialFormState);
+      setItemDescriptions(['']);
       setOriginSelection('');
       setDestinations([{ selection: '', city: '', state: '' }]);
     }
@@ -94,23 +100,42 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
         setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
-
-  const handleDestinationChange = (index: number, field: 'selection' | 'city' | 'state', value: string) => {
-      const newDestinations = [...destinations];
-      newDestinations[index] = { ...newDestinations[index], [field]: value };
-      setDestinations(newDestinations);
+  
+  const handleItemDescriptionChange = (index: number, value: string) => {
+    const newDescriptions = [...itemDescriptions];
+    newDescriptions[index] = value;
+    setItemDescriptions(newDescriptions);
   };
 
-  const addDestination = () => {
-      if (destinations.length < 3) {
-          setDestinations([...destinations, { selection: '', city: '', state: ''}]);
-      }
+  const handleAddItemDescription = () => {
+    if (itemDescriptions.length < 6) {
+      setItemDescriptions([...itemDescriptions, '']);
+    }
   };
 
-  const removeDestination = (index: number) => {
-      if (destinations.length > 1) {
-          setDestinations(destinations.filter((_, i) => i !== index));
-      }
+  const handleRemoveItemDescription = (index: number) => {
+    if (itemDescriptions.length > 1) {
+      setItemDescriptions(itemDescriptions.filter((_, i) => i !== index));
+    }
+  };
+
+
+  const handleDestinationChange = (index: number, field: keyof DestinationForm, value: string) => {
+    const newDestinations = [...destinations];
+    newDestinations[index][field] = value;
+    setDestinations(newDestinations);
+  };
+
+  const handleAddDestination = () => {
+    if (destinations.length < 3) {
+      setDestinations([...destinations, { selection: '', city: '', state: '' }]);
+    }
+  };
+
+  const handleRemoveDestination = (index: number) => {
+    if (destinations.length > 1) {
+      setDestinations(destinations.filter((_, i) => i !== index));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -120,21 +145,34 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
         ? `${formData.originCity}, ${formData.originState}`
         : originSelection;
        
-    const destinationsValue = destinations.map(dest => {
-        return dest.selection === 'Other' ? `${dest.city}, ${dest.state}` : dest.selection
-    }).filter(d => d && d.trim() !== ',');
+    const destinationValues = destinations.map(dest => 
+        dest.selection === 'Other' 
+            ? `${dest.city}, ${dest.state}` 
+            : dest.selection
+    ).filter(d => d.trim() && d.trim() !== ',');
+    
+    const validDescriptions = itemDescriptions.filter(d => d.trim() !== '');
 
-    if (destinationsValue.length === 0) {
-        // Basic validation: ensure at least one destination is fully entered.
-        alert("Please enter at least one valid destination.");
-        return;
+    if (validDescriptions.length === 0) {
+      alert('Please select at least one publication.');
+      return;
+    }
+
+    if (!originValue.trim() || originValue.trim() === ',') {
+      alert('Please provide a valid origin.');
+      return;
+    }
+
+    if (destinationValues.length === 0) {
+      alert('Please provide at least one valid destination.');
+      return;
     }
 
     const commonLoadData = {
-      itemDescription: formData.itemDescription,
+      itemDescriptions: validDescriptions,
       referenceNumber: formData.referenceNumber || undefined,
       origin: originValue,
-      destinations: destinationsValue,
+      destinations: destinationValues,
       pickupDate: formData.pickupDate,
       deliveryDate: formData.deliveryDate,
       palletCount: parseInt(formData.palletCount, 10),
@@ -182,22 +220,50 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
           {/* Item Description */}
           <fieldset className="space-y-4">
             <legend className="text-lg font-semibold text-gray-700 dark:text-gray-300 border-b dark:border-gray-600 pb-2 w-full">Item Description</legend>
-            <div>
-              <label htmlFor="itemDescription" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Select Publication</label>
-              <select
-                name="itemDescription"
-                id="itemDescription"
-                value={formData.itemDescription}
-                onChange={handleChange}
-                className={inputStyles}
-                required
-              >
-                <option value="" disabled>Select a publication...</option>
-                {PUBLICATION_NAMES.map((desc) => (
-                    <option key={desc} value={desc}>{desc}</option>
-                ))}
-              </select>
+            
+            <div className="space-y-4">
+              {itemDescriptions.map((desc, index) => (
+                <div key={index} className="space-y-2 p-4 border dark:border-gray-700 rounded-lg relative">
+                  <div className="flex justify-between items-center">
+                    <label htmlFor={`itemDescription-${index}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Publication {index + 1}
+                    </label>
+                    {itemDescriptions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItemDescription(index)}
+                        className="text-xs bg-red-100 text-red-700 font-semibold px-2 py-1 rounded-md hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/80 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <select
+                    name={`itemDescription-${index}`}
+                    id={`itemDescription-${index}`}
+                    value={desc}
+                    onChange={(e) => handleItemDescriptionChange(index, e.target.value)}
+                    className={inputStyles}
+                    required
+                  >
+                    <option value="" disabled>Select a publication...</option>
+                    {PUBLICATION_NAMES.map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+              {itemDescriptions.length < 6 && (
+                <button
+                  type="button"
+                  onClick={handleAddItemDescription}
+                  className="w-full bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 font-semibold py-2 px-4 rounded-md hover:bg-green-200 dark:hover:bg-green-900/80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150"
+                >
+                  + Add Publication
+                </button>
+              )}
             </div>
+
             <div>
               <label htmlFor="referenceNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Reference Number</label>
               <input
@@ -248,63 +314,61 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
             )}
            
             {destinations.map((dest, index) => (
-                <div key={index} className="space-y-4 p-4 border border-gray-200 dark:border-gray-700 rounded-lg relative">
-                    <div className="flex justify-between items-center">
-                        <label htmlFor={`destinationSelection-${index}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                           Destination {index + 1}
-                        </label>
-                        {destinations.length > 1 && (
-                            <button
-                                type="button"
-                                onClick={() => removeDestination(index)}
-                                className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-semibold"
-                                aria-label={`Remove destination ${index + 1}`}
-                            >
-                                Remove
-                            </button>
-                        )}
-                    </div>
-                    <select
-                        name={`destinationSelection-${index}`}
-                        id={`destinationSelection-${index}`}
-                        value={dest.selection}
-                        onChange={(e) => handleDestinationChange(index, 'selection', e.target.value)}
-                        className={inputStyles}
-                        required
-                    >
-                        <option value="" disabled>Select a destination...</option>
-                        {Object.entries(PREDEFINED_DESTINATIONS)
-                          .sort(([, a], [, b]) => a.localeCompare(b))
-                          .map(([fullAddress, displayName]) => (
-                            <option key={fullAddress} value={fullAddress}>{displayName}</option>
-                        ))}
-                        <option value="Other">Other (Manual Entry)</option>
-                    </select>
-
-                    {dest.selection === 'Other' && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4 border-l-2 border-red-200 dark:border-red-500/50">
-                        <div>
-                          <label htmlFor={`destinationCity-${index}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">Destination City</label>
-                          <input type="text" name={`destinationCity-${index}`} id={`destinationCity-${index}`} value={dest.city} onChange={(e) => handleDestinationChange(index, 'city', e.target.value)} className={inputStyles} required />
-                        </div>
-                        <div>
-                          <label htmlFor={`destinationState-${index}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">Destination State</label>
-                          <input type="text" name={`destinationState-${index}`} id={`destinationState-${index}`} placeholder="e.g., CA" value={dest.state} onChange={(e) => handleDestinationChange(index, 'state', e.target.value)} className={inputStyles} required />
-                        </div>
-                      </div>
-                    )}
-                </div>
-            ))}
-             {destinations.length < 3 && (
-                <div className="flex justify-end">
-                    <button
+              <div key={index} className="space-y-4 p-4 border dark:border-gray-700 rounded-lg relative">
+                 <div className="flex justify-between items-center">
+                    <label htmlFor={`destinationSelection-${index}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Destination {index + 1}
+                    </label>
+                    {destinations.length > 1 && (
+                      <button
                         type="button"
-                        onClick={addDestination}
-                        className="bg-gray-200 text-gray-700 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150"
-                    >
-                        + Add Destination
-                    </button>
-                </div>
+                        onClick={() => handleRemoveDestination(index)}
+                        className="text-xs bg-red-100 text-red-700 font-semibold px-2 py-1 rounded-md hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/80 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    )}
+                 </div>
+                <select
+                    name={`destinationSelection-${index}`}
+                    id={`destinationSelection-${index}`}
+                    value={dest.selection}
+                    onChange={(e) => handleDestinationChange(index, 'selection', e.target.value)}
+                    className={inputStyles}
+                    required
+                >
+                    <option value="" disabled>Select a destination...</option>
+                    {Object.entries(PREDEFINED_DESTINATIONS)
+                      .sort(([, a], [, b]) => a.localeCompare(b))
+                      .map(([fullAddress, displayName]) => (
+                        <option key={fullAddress} value={fullAddress}>{displayName}</option>
+                    ))}
+                    <option value="Other">Other (Manual Entry)</option>
+                </select>
+
+                {dest.selection === 'Other' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-4 border-l-2 border-red-200 dark:border-red-500/50">
+                    <div>
+                      <label htmlFor={`destinationCity-${index}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">Destination City</label>
+                      <input type="text" name={`destinationCity-${index}`} id={`destinationCity-${index}`} value={dest.city} onChange={(e) => handleDestinationChange(index, 'city', e.target.value)} className={inputStyles} required />
+                    </div>
+                    <div>
+                      <label htmlFor={`destinationState-${index}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">Destination State</label>
+                      <input type="text" name={`destinationState-${index}`} id={`destinationState-${index}`} placeholder="e.g., CA" value={dest.state} onChange={(e) => handleDestinationChange(index, 'state', e.target.value)} className={inputStyles} required />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            
+            {destinations.length < 3 && (
+              <button
+                type="button"
+                onClick={handleAddDestination}
+                className="w-full bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 font-semibold py-2 px-4 rounded-md hover:bg-green-200 dark:hover:bg-green-900/80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150"
+              >
+                + Add Destination
+              </button>
             )}
           </fieldset>
 
@@ -317,22 +381,22 @@ const LoadBuilderModal: React.FC<LoadBuilderModalProps> = ({ isOpen, onClose, on
                 <input type="date" name="pickupDate" id="pickupDate" value={formData.pickupDate} onChange={handleChange} className={inputStyles} required />
               </div>
               <div>
-                <label htmlFor="deliveryDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Final Delivery Date</label>
+                <label htmlFor="deliveryDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Delivery Date</label>
                 <input type="date" name="deliveryDate" id="deliveryDate" value={formData.deliveryDate} onChange={handleChange} className={inputStyles} required />
               </div>
             </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                <div>
-                <label htmlFor="appointmentDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Final Appt. Date</label>
+                <label htmlFor="appointmentDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Appointment Date</label>
                 <input type="date" name="appointmentDate" id="appointmentDate" value={formData.appointmentDate} onChange={handleChange} className={inputStyles} />
               </div>
               <div>
-                <label htmlFor="appointmentTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Final Appt. Time</label>
+                <label htmlFor="appointmentTime" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Appointment Time</label>
                 <input type="time" name="appointmentTime" id="appointmentTime" value={formData.appointmentTime} onChange={handleChange} className={inputStyles} />
               </div>
             </div>
             <div>
-              <label htmlFor="appointmentNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Final Appt. Number</label>
+              <label htmlFor="appointmentNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Appointment Number</label>
               <input
                 type="text"
                 name="appointmentNumber"

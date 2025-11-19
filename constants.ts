@@ -1,4 +1,6 @@
-import type { Load } from './types.ts';
+import type { Load } from './types';
+
+ 
 
 export const MOCK_LOADS: Load[] = [
 
@@ -6,7 +8,7 @@ export const MOCK_LOADS: Load[] = [
 
     id: 'load-1',
 
-    itemDescription: 'Palm Beach Illustrated',
+    itemDescriptions: ['Palm Beach Illustrated'],
 
     referenceNumber: 'TR-PBI-001',
 
@@ -40,7 +42,7 @@ export const MOCK_LOADS: Load[] = [
 
     id: 'load-2',
 
-    itemDescription: 'Tallahassee Magazine',
+    itemDescriptions: ['Tallahassee Magazine'],
 
     referenceNumber: 'TR-TMAG-005',
 
@@ -72,7 +74,7 @@ export const MOCK_LOADS: Load[] = [
 
     id: 'load-3',
 
-    itemDescription: 'Aventura',
+    itemDescriptions: ['Aventura'],
 
     referenceNumber: 'TR-AVM-002',
 
@@ -114,7 +116,7 @@ export const MOCK_LOADS: Load[] = [
 
     id: 'load-4',
 
-    itemDescription: 'Emerald Coast Magazine',
+    itemDescriptions: ['Emerald Coast Magazine'],
 
     referenceNumber: 'TR-ECM-009',
 
@@ -142,7 +144,7 @@ export const MOCK_LOADS: Load[] = [
 
     id: 'load-5',
 
-    itemDescription: '850 Business Magazine',
+    itemDescriptions: ['850 Business Magazine'],
 
     referenceNumber: 'TR-850B-001',
 
@@ -174,7 +176,7 @@ export const MOCK_LOADS: Load[] = [
 
     id: 'load-6',
 
-    itemDescription: 'Naples Illustrated',
+    itemDescriptions: ['Naples Illustrated'],
 
     referenceNumber: 'TR-NPI-011',
 

@@ -3,12 +3,11 @@ export interface Bid {
   carrierName: string;
   amount: number;
   timestamp: string;
-  daysInTransit?: number;
 }
 
 export interface Load {
   id: string;
-  itemDescription: string;
+  itemDescriptions: string[];
   referenceNumber?: string;
   origin: string;
   destinations: string[];

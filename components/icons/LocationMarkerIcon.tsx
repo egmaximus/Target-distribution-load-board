@@ -1,7 +1,4 @@
-
 import * as React from 'react';
-
- 
 
 export const LocationMarkerIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 

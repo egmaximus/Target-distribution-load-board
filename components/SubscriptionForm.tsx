@@ -1,30 +1,25 @@
-
 import * as React from 'react';
-import { addCarrierEmail } from './carrier-emails.ts';
+import { useState } from 'react';
+import { addCarrierEmail } from './carrier-emails';
 
 const SubscriptionForm: React.FC = () => {
-    const [email, setEmail] = React.useState('');
-    const [message, setMessage] = React.useState('');
-    const [isSuccess, setIsSuccess] = React.useState(false);
-    const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [email, setEmail] = useState('');
+    const [message, setMessage] = useState('');
+    const [isSuccess, setIsSuccess] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setIsSubmitting(true);
-        const result = await addCarrierEmail(email);
-
+        const result = addCarrierEmail(email);
         setMessage(result.message);
         setIsSuccess(result.success);
         
         if (result.success) {
             setEmail('');
         }
-        setIsSubmitting(false);
 
-        // Message disappears after 5 seconds
         setTimeout(() => {
             setMessage('');
-        }, 5000);
+        }, 5000); // Message disappears after 5 seconds
     };
 
     return (
@@ -48,10 +43,9 @@ const SubscriptionForm: React.FC = () => {
                 />
                 <button
                     type="submit"
-                    className="bg-red-600 text-white font-semibold px-6 py-2 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 disabled:opacity-75"
-                    disabled={isSubmitting}
+                    className="bg-red-600 text-white font-semibold px-6 py-2 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 disabled:opacity-50"
                 >
-                    {isSubmitting ? 'Subscribing...' : 'Subscribe'}
+                    Subscribe
                 </button>
             </form>
             {message && (

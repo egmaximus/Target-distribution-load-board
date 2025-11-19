@@ -1,111 +1,106 @@
-
 import * as React from 'react';
-import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs, writeBatch, query, orderBy } from 'firebase/firestore';
-import { onAuthStateChanged, signOut, signInWithEmailAndPassword } from 'firebase/auth';
-import { db, auth } from './firebase-config.ts';
-import Header from './components/Header.tsx';
-import LoadBoard from './components/LoadBoard.tsx';
-import LoadBuilderModal from './components/LoadBuilderModal.tsx';
-import LoginModal from './components/LoginModal.tsx';
-import SubscriptionForm from './components/SubscriptionForm.tsx';
-import { MOCK_LOADS } from './constants.ts';
-import type { Load } from './types.ts';
-import { getCarrierEmails } from './components/carrier-emails.ts';
+import { useState, useEffect } from 'react';
+
+import Header from './components/Header';
+import LoadBoard from './components/LoadBoard';
+import LoadBuilderModal from './components/LoadBuilderModal';
+import LoginModal from './components/LoginModal';
+import SubscriptionForm from './components/SubscriptionForm';
+import { MOCK_LOADS } from './constants';
+import type { Load } from './types';
+import { getCarrierEmails } from './components/carrier-emails';
 
 const App: React.FC = () => {
-  const [loads, setLoads] = React.useState<Load[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [isModalOpen, setIsModalOpen] = React.useState(false);
-  const [editingLoad, setEditingLoad] = React.useState<Load | null>(null);
-  const [isLoginModalOpen, setIsLoginModalOpen] = React.useState(false);
-  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
-  const [isAdmin, setIsAdmin] = React.useState(false);
-  const [theme, setTheme] = React.useState<'light' | 'dark'>(() => {
+  const [loads, setLoads] = useState<Load[]>(() => {
     try {
-      const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-      if (savedTheme) return savedTheme;
+      const storedLoads = localStorage.getItem('freightLoads');
+      if (storedLoads) {
+        return JSON.parse(storedLoads);
+      }
+      // Initialize with mock data if nothing is in localStorage
+      localStorage.setItem('freightLoads', JSON.stringify(MOCK_LOADS));
+      return MOCK_LOADS;
     } catch (error) {
-      console.error("Failed to read theme from localStorage.", error);
+      console.error("Failed to parse loads from localStorage", error);
+      return MOCK_LOADS; // Fallback
     }
-    return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light';
+  });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingLoad, setEditingLoad] = useState<Load | null>(null);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    // Check for saved theme in local storage, or default to system preference
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (savedTheme) {
+      return savedTheme;
+    }
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+    return 'light';
   });
 
-  // Fetch loads from Firestore in real-time
-  React.useEffect(() => {
-    const loadsCollection = collection(db, 'loads');
-    const q = query(loadsCollection, orderBy('pickupDate', 'desc'));
-
-    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
-      // Seed database if it's empty on first load
-      if (querySnapshot.empty && MOCK_LOADS.length > 0) {
-        console.log("Empty 'loads' collection, seeding with mock data...");
-        const batch = writeBatch(db);
-        MOCK_LOADS.forEach((load) => {
-          const { id, ...loadData } = load; // Firestore generates its own ID
-          const docRef = doc(collection(db, 'loads'));
-          batch.set(docRef, loadData);
-        });
-        await batch.commit();
-      } else {
-        const loadsData = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Load));
-        setLoads(loadsData);
-      }
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching loads:", error);
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // Listen for authentication state changes
-  React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setIsLoggedIn(true);
-        setIsAdmin(user.email === 'admin@targetdistribution.com');
-      } else {
-        setIsLoggedIn(false);
-        setIsAdmin(false);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  React.useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
+  // This effect hook ensures that any change to the `loads` state,
+  // including adding or removing a load, is saved to localStorage.
+  useEffect(() => {
     try {
-      localStorage.setItem('theme', theme);
+      localStorage.setItem('freightLoads', JSON.stringify(loads));
     } catch (error) {
-      console.error("Failed to save theme to localStorage.", error);
+      console.error("Failed to save loads to localStorage", error);
     }
+  }, [loads]);
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
   }, [theme]);
 
   const handleToggleTheme = () => {
     setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
   };
 
-  const sendNewLoadNotification = async (newLoad: Load) => {
-    const recipient = 'omorales@targetdistribution.com';
-    const carrierEmails = await getCarrierEmails();
-    if (carrierEmails.length === 0) return; // Don't open mailto if no carriers subscribed
+  const sendNewLoadNotification = (newLoad: Load) => {
+    const recipient = 'omorales@targetdistribution.com'; // Admin's email for record-keeping
+    const bccRecipients = getCarrierEmails().join(',');
+    const subject = `New Freight: ${newLoad.itemDescriptions[0]}${newLoad.itemDescriptions.length > 1 ? ` (+${newLoad.itemDescriptions.length - 1} more)` : ''} from ${newLoad.origin} to ${newLoad.destinations[0]}`;
 
-    const bccRecipients = carrierEmails.join(',');
-    const subject = `New Freight Available: ${newLoad.origin} to ${newLoad.destinations[0]}${newLoad.destinations.length > 1 ? ` (+${newLoad.destinations.length - 1} drops)` : ''}`;
-    const formatDate = (dateString: string) => dateString ? new Date(`${dateString}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A';
-    const destinationsList = newLoad.destinations.map((dest, index) => `Destination ${index + 1}: ${dest}`).join('\n');
+    const formatDate = (dateString: string) => {
+      if (!dateString) return 'N/A';
+      return new Date(`${dateString}T00:00:00`).toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    };
+    
+    const itemsText = newLoad.itemDescriptions.length > 1
+      ? `Items:\n${newLoad.itemDescriptions.map(d => `- ${d}`).join('\n')}`
+      : `Item: ${newLoad.itemDescriptions[0]}`;
+
+
+    const destinationsText = newLoad.destinations.length > 1
+      ? `Destinations:\n${newLoad.destinations.map(d => `- ${d}`).join('\n')}`
+      : `Destination: ${newLoad.destinations[0]}`;
 
     const body = `A new load has been posted and is available for bidding.
 
 Load Details:
 --------------------------------------------------
-Item: ${newLoad.itemDescription}
+${itemsText}
 Reference #: ${newLoad.referenceNumber || 'N/A'}
+
 Origin: ${newLoad.origin}
-${destinationsList}
+${destinationsText}
+
 Pickup Date: ${formatDate(newLoad.pickupDate)}
 Delivery Date: ${formatDate(newLoad.deliveryDate)}
+
 Pallet Count: ${newLoad.palletCount.toLocaleString()}
 Weight: ${newLoad.weight.toLocaleString()} lbs
 Equipment: ${newLoad.equipmentType}
@@ -113,115 +108,105 @@ Equipment: ${newLoad.equipmentType}
 Details:
 ${newLoad.details}
 --------------------------------------------------
-To place your bid, please visit the loadboard.
+
+To place your bid, please follow the link to the loadboard below.
+
+Target-Distribution-Loadboard
+https://target-distribution-loadboard-770425821428.us-west1.run.app/
 
 Thank you,
 Target Distribution`;
 
-    const mailtoLink = `mailto:${recipient}?bcc=${bccRecipients}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    // Using mailto: to open the user's default email client.
+    // BCC is used to protect carrier privacy.
+    const mailtoLink = `mailto:${recipient}?bcc=${bccRecipients}&subject=${encodeURIComponent(
+      subject
+    )}&body=${encodeURIComponent(body.trim())}`;
+    
     window.location.href = mailtoLink;
   };
 
-  const handlePostLoad = async (newLoadData: Omit<Load, 'id' | 'bids'>) => {
-    const loadToAdd = { ...newLoadData, bids: [] };
-    try {
-      const docRef = await addDoc(collection(db, 'loads'), loadToAdd);
-      setIsModalOpen(false);
-      const notificationLoad: Load = { ...loadToAdd, id: docRef.id };
-      await sendNewLoadNotification(notificationLoad);
-    } catch (error) {
-      console.error("Error posting load: ", error);
-      alert("Failed to post load.");
-    }
+  const handlePostLoad = (newLoadData: Omit<Load, 'id' | 'bids'>) => {
+    const newLoad: Load = {
+      ...newLoadData,
+      id: `load-${Date.now()}`,
+      bids: [],
+    };
+    // Updating the state here triggers the useEffect to save to localStorage
+    setLoads(prevLoads => [newLoad, ...prevLoads]);
+    setIsModalOpen(false); // Close modal on successful post
+    
+    // Send email notification to carriers
+    sendNewLoadNotification(newLoad);
   };
 
-  const handleUpdateLoad = async (updatedLoad: Load) => {
-    try {
-      const { id, ...loadData } = updatedLoad;
-      const loadRef = doc(db, 'loads', id);
-      await updateDoc(loadRef, loadData);
-      setIsModalOpen(false);
-      setEditingLoad(null);
-    } catch (error) {
-      console.error("Error updating load: ", error);
-      alert("Failed to update load.");
-    }
+  const handleUpdateLoad = (updatedLoad: Load) => {
+    setLoads(prevLoads => prevLoads.map(load => (load.id === updatedLoad.id ? updatedLoad : load)));
+    setEditingLoad(null);
+    setIsModalOpen(false);
   };
-
-  const handleRemoveLoad = async (loadId: string) => {
-    try {
-      await deleteDoc(doc(db, 'loads', loadId));
-    } catch (error) {
-      console.error("Error removing load: ", error);
-      alert("Failed to remove load.");
-    }
-  };
-
+  
   const handleOpenEditModal = (load: Load) => {
     setEditingLoad(load);
     setIsModalOpen(true);
   };
-  
-  const handleLogin = async (email: string, password: string) => {
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      setIsLoginModalOpen(false);
-    } catch (error) {
-      alert('Invalid credentials. Please try again.');
-    }
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingLoad(null);
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error("Error signing out:", error);
+  const handleLogin = (email: string, password: string) => {
+    if (email.toLowerCase() === 'omorales@targetdistribution.com' && password === 'Target8420') {
+        setIsAdmin(true);
+    } else {
+        setIsAdmin(false);
     }
+    setIsLoggedIn(true);
+    setIsLoginModalOpen(false);
   };
 
-  const handlePromptLogin = () => {
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setIsAdmin(false);
+  };
+
+  const handleOpenLoginModal = () => {
     setIsLoginModalOpen(true);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="text-xl font-semibold text-gray-700 dark:text-gray-300">Loading Loadboard...</div>
-      </div>
-    );
-  }
+  const handleRemoveLoad = (loadId: string) => {
+    // Updating the state here triggers the useEffect to save to localStorage
+    setLoads(prevLoads => prevLoads.filter(load => load.id !== loadId));
+  };
 
   return (
-    <div className={`min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 font-sans transition-colors duration-300`}>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 font-sans transition-colors duration-300">
       <Header
         onOpenPostLoadModal={() => {
-          setEditingLoad(null);
-          setIsModalOpen(true);
+            setEditingLoad(null);
+            setIsModalOpen(true);
         }}
         theme={theme}
         onToggleTheme={handleToggleTheme}
         isLoggedIn={isLoggedIn}
-        isAdmin={isAdmin}
-        onOpenLoginModal={handlePromptLogin}
+        onOpenLoginModal={handleOpenLoginModal}
         onLogout={handleLogout}
       />
       <main className="container mx-auto p-4 md:p-8">
         <SubscriptionForm />
-        <LoadBoard 
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6">Open Freight Loads</h1>
+        <LoadBoard
           loads={loads}
           isLoggedIn={isLoggedIn}
-          isAdmin={isAdmin}
-          onPromptLogin={handlePromptLogin}
+          onPromptLogin={handleOpenLoginModal}
           onRemoveLoad={handleRemoveLoad}
           onEditLoad={handleOpenEditModal}
         />
       </main>
       <LoadBuilderModal
         isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingLoad(null);
-        }}
+        onClose={closeModal}
         onPostLoad={handlePostLoad}
         onUpdateLoad={handleUpdateLoad}
         loadToEdit={editingLoad}

@@ -1,24 +1,21 @@
-
 import * as React from 'react';
-import { XIcon } from './icons/XIcon.tsx';
-import { TargetIcon } from './icons/TargetIcon.tsx';
+import { useState } from 'react';
+import { XIcon } from './icons/XIcon';
+import { TargetIcon } from './icons/TargetIcon';
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: (email: string, password: string) => Promise<void>;
+  onLogin: (email: string, password: string) => void;
 }
 
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin }) => {
-  const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('');
-  const [isLoggingIn, setIsLoggingIn] = React.useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoggingIn(true);
-    await onLogin(email, password);
-    setIsLoggingIn(false);
+    onLogin(email, password);
   };
 
   if (!isOpen) return null;
@@ -43,7 +40,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin }) => 
           <div className="flex flex-col items-center text-center">
             <TargetIcon className="h-12 w-auto mb-4" />
             <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Access Restricted</h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">Please log in to view bid amounts or place a bid.</p>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">Please log in to view bid amounts.</p>
           </div>
          
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -76,10 +73,9 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLogin }) => 
             <div className="pt-2">
               <button
                 type="submit"
-                className="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 disabled:opacity-75"
-                disabled={isLoggingIn}
+                className="w-full bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150"
               >
-                {isLoggingIn ? 'Logging in...' : 'Log In'}
+                Log In
               </button>
             </div>
           </form>
