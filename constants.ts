@@ -1,3 +1,4 @@
+
 import type { Load } from './types';
 
  
@@ -30,9 +31,9 @@ export const MOCK_LOADS: Load[] = [
 
     bids: [
 
-      { id: 'bid-101', carrierName: 'Cross Country Movers', amount: 4500, timestamp: '2024-07-20T10:00:00Z' },
+      { id: 'bid-101', carrierName: 'Cross Country Movers', carrierEmail: 'dispatch@crosscountry.com', amount: 4500, timestamp: '2024-07-20T10:00:00Z' },
 
-      { id: 'bid-102', carrierName: 'Reliable Transport', amount: 4650, timestamp: '2024-07-20T11:30:00Z' },
+      { id: 'bid-102', carrierName: 'Reliable Transport', carrierEmail: 'contact@reliabletransport.com', amount: 4650, timestamp: '2024-07-20T11:30:00Z' },
 
     ],
 
@@ -64,7 +65,7 @@ export const MOCK_LOADS: Load[] = [
 
     bids: [
 
-        { id: 'bid-201', carrierName: 'Midwest Haulers', amount: 1200, timestamp: '2024-07-21T09:00:00Z' },
+        { id: 'bid-201', carrierName: 'Midwest Haulers', carrierEmail: 'loads@midwesthaulers.com', amount: 1200, timestamp: '2024-07-21T09:00:00Z' },
 
     ],
 
@@ -102,11 +103,11 @@ export const MOCK_LOADS: Load[] = [
 
     bids: [
 
-        { id: 'bid-301', carrierName: 'Sunshine Express', amount: 950, timestamp: '2024-07-22T14:00:00Z' },
+        { id: 'bid-301', carrierName: 'Sunshine Express', carrierEmail: 'dispatch@sunshineexpress.com', amount: 950, timestamp: '2024-07-22T14:00:00Z' },
 
-        { id: 'bid-302', carrierName: 'Quick Route Logistics', amount: 925, timestamp: '2024-07-22T15:10:00Z' },
+        { id: 'bid-302', carrierName: 'Quick Route Logistics', carrierEmail: 'info@quickroute.com', amount: 925, timestamp: '2024-07-22T15:10:00Z' },
 
-        { id: 'bid-303', carrierName: 'Florida Freight', amount: 940, timestamp: '2024-07-22T16:00:00Z' },
+        { id: 'bid-303', carrierName: 'Florida Freight', carrierEmail: 'ops@floridafreight.com', amount: 940, timestamp: '2024-07-22T16:00:00Z' },
 
     ],
 
@@ -166,7 +167,7 @@ export const MOCK_LOADS: Load[] = [
 
     bids: [
 
-        { id: 'bid-501', carrierName: 'East Coast Couriers', amount: 600, timestamp: '2024-07-23T08:00:00Z' },
+        { id: 'bid-501', carrierName: 'East Coast Couriers', carrierEmail: 'dispatch@eccouriers.com', amount: 600, timestamp: '2024-07-23T08:00:00Z' },
 
     ],
 

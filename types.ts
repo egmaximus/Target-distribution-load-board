@@ -1,6 +1,8 @@
+
 export interface Bid {
   id: string;
   carrierName: string;
+  carrierEmail?: string;
   amount: number;
   timestamp: string;
 }

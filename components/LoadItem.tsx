@@ -1,9 +1,11 @@
+
 import * as React from 'react';
 import { useState, useEffect } from 'react';
-import type { Load } from '../types';
+import type { Load, Bid } from '../types';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { TruckIcon } from './icons/TruckIcon';
 import { LocationMarkerIcon } from './icons/LocationMarkerIcon';
+import { EnvelopeIcon } from './icons/EnvelopeIcon';
 
 // --- Distance Calculation Utilities ---
 
@@ -61,12 +63,13 @@ const calculateDistance = (coords1: { lat: number; lon: number }, coords2: { lat
 interface LoadItemProps {
   load: Load;
   isLoggedIn: boolean;
+  isAdmin: boolean;
   onPromptLogin: () => void;
   onRemoveLoad: (loadId: string) => void;
   onEditLoad: (load: Load) => void;
 }
 
-const LoadItem: React.FC<LoadItemProps> = ({ load, isLoggedIn, onPromptLogin, onRemoveLoad, onEditLoad }) => {
+const LoadItem: React.FC<LoadItemProps> = ({ load, isLoggedIn, isAdmin, onPromptLogin, onRemoveLoad, onEditLoad }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [bidAmount, setBidAmount] = useState('');
   const [carrierName, setCarrierName] = useState('');
@@ -193,6 +196,47 @@ ${carrierName.trim()}
     setDaysInTransit('');
   };
 
+  const handleSelectWinner = (bid: Bid) => {
+    if (!isAdmin) return;
+
+    const carrierEmail = bid.carrierEmail || '';
+    const subject = `Rate Confirmation: Load #${load.referenceNumber || load.id} - ${formatLocation(load.origin)} to ${formatLocation(load.destinations[load.destinations.length - 1])}`;
+    
+    const itemsText = load.itemDescriptions.length > 1
+      ? `Items:\n${load.itemDescriptions.map(d => `- ${d}`).join('\n')}`
+      : `Item: ${load.itemDescriptions[0]}`;
+      
+    const destinationsText = load.destinations.length > 1
+      ? `Destinations:\n${load.destinations.map(d => `- ${d}`).join('\n')}`
+      : `Destination: ${load.destinations[0]}`;
+
+    const body = `Dear ${bid.carrierName},
+
+Congratulations! We are pleased to inform you that your bid of ${formatCurrency(bid.amount, false)} has been accepted for the following load:
+
+Reference #: ${load.referenceNumber || 'N/A'}
+--------------------------------------------------
+${itemsText}
+
+Origin: ${load.origin}
+${destinationsText}
+
+Pickup Date: ${formatDate(load.pickupDate)}
+Delivery Date: ${formatDate(load.deliveryDate)}
+
+Equipment: ${load.equipmentType}
+Pallet Count: ${load.palletCount}
+Weight: ${load.weight.toLocaleString()} lbs
+--------------------------------------------------
+
+Please reply to this email to confirm receipt and provide driver information.
+
+Best regards,
+
+Target Distribution`;
+
+    window.location.href = `mailto:${carrierEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
 
   const formatTime = (timeString: string) => {
     if (!timeString) return '';
@@ -289,7 +333,7 @@ ${carrierName.trim()}
                 <div className="md:col-span-5 mb-6 md:mb-0">
                     <div className="flex justify-between items-center mb-2">
                         <h4 className="font-bold text-gray-800 dark:text-gray-100">Load Details</h4>
-                        {isLoggedIn && (
+                        {isAdmin && (
                             <div className="flex items-center space-x-2">
                                 <button
                                     onClick={(e) => {
@@ -367,12 +411,25 @@ ${carrierName.trim()}
                 </div>
 
                 <div className="md:col-span-4 mb-6 md:mb-0">
-                     <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Bid History ({load.bids.length})</h4>
+                     <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">
+                         Bid History ({load.bids.length})
+                         {isAdmin && load.bids.length > 0 && <span className="block text-xs font-normal text-gray-500 mt-1">Click a bid to award load</span>}
+                     </h4>
                     {load.bids.length > 0 ? (
                         <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
                             {sortedBids.map(bid => (
-                                <div key={bid.id} className="flex justify-between items-center bg-white dark:bg-gray-700 p-2 rounded-md border dark:border-gray-600">
-                                    <span className="text-sm text-gray-600 dark:text-gray-300">{bid.carrierName}</span>
+                                <div 
+                                    key={bid.id} 
+                                    className={`flex justify-between items-center bg-white dark:bg-gray-700 p-2 rounded-md border dark:border-gray-600 ${isAdmin ? 'cursor-pointer hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors group' : ''}`}
+                                    onClick={() => isAdmin && handleSelectWinner(bid)}
+                                    title={isAdmin ? "Click to award load to this carrier" : ""}
+                                >
+                                    <div className="flex items-center space-x-2">
+                                        {isAdmin && (
+                                            <EnvelopeIcon className="h-4 w-4 text-gray-400 group-hover:text-green-600 transition-colors" />
+                                        )}
+                                        <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">{bid.carrierName}</span>
+                                    </div>
                                     {formatCurrency(bid.amount)}
                                 </div>
                             ))}

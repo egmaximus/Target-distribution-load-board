@@ -1,3 +1,4 @@
+
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 
@@ -199,6 +200,7 @@ Target Distribution`;
         <LoadBoard
           loads={loads}
           isLoggedIn={isLoggedIn}
+          isAdmin={isAdmin}
           onPromptLogin={handleOpenLoginModal}
           onRemoveLoad={handleRemoveLoad}
           onEditLoad={handleOpenEditModal}
