@@ -474,18 +474,6 @@ Target Distribution`;
                                         <div className="flex items-center justify-between w-full sm:w-auto space-x-4">
                                             <div className="flex items-center space-x-2">
                                                 <span className="font-bold text-gray-800 dark:text-gray-100">{formatCurrency(bid.amount)}</span>
-                                                {isAdmin && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleSelectWinner(bid);
-                                                        }}
-                                                        className="p-1 text-gray-400 hover:text-green-600 dark:text-gray-500 dark:hover:text-green-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-600"
-                                                        title="Award Load (Email Carrier)"
-                                                    >
-                                                        <EnvelopeIcon className="h-4 w-4" />
-                                                    </button>
-                                                )}
                                             </div>
                                             {isAdmin && (
                                                 <button
