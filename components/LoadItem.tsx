@@ -1,4 +1,3 @@
-
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import type { Load, Bid } from '../types';
@@ -127,15 +126,16 @@ const LoadItem: React.FC<LoadItemProps> = ({ load, isLoggedIn, isAdmin, onPrompt
   const formatLocation = (location: string) => {
     if (!location) return '';
     // Check if it's a full street address by looking for numbers at the start
+    // Example: "3487 South Preston Highway, Lebanon Junction, KY 40150"
     if (/^\d/.test(location)) {
       const parts = location.split(',');
+      // We expect at least 3 parts: Street, City, State Zip
       if (parts.length >= 3) {
-        // e.g., ["3487 South Preston Highway", " Lebanon Junction", " KY 40150"] -> "Lebanon Junction, KY"
-        const stateZip = parts[2].trim().split(' ');
-        return `${parts[1].trim()}, ${stateZip[0]}`;
+        // Return "City, State Zip"
+        return `${parts[1].trim()}, ${parts[2].trim()}`;
       }
     }
-    // Otherwise, assume it's "City, State" and return as is
+    // Otherwise, assume it's already in a summary format like "City, State" and return as is
     return location;
   };
 
@@ -299,7 +299,9 @@ Target Distribution`;
             {/* Reference Number */}
             <div className="col-span-12 md:col-span-2 flex items-center">
                 <span className="md:hidden font-bold mr-2 text-gray-500 dark:text-gray-400">Ref:</span>
-                <span className="font-mono text-sm font-medium text-gray-700 dark:text-gray-200 truncate" title={load.referenceNumber}>{load.referenceNumber || 'N/A'}</span>
+                <span className="font-mono text-sm font-medium text-gray-700 dark:text-gray-200 truncate" title={isAdmin ? load.referenceNumber : 'Visible to dispatched carrier.'}>
+                    {load.referenceNumber ? (isAdmin ? load.referenceNumber : 'Visible to dispatched carrier.') : 'N/A'}
+                </span>
             </div>
 
             {/* Origin / Destination */}
@@ -347,7 +349,7 @@ Target Distribution`;
         {/* Expanded Section */}
         {isExpanded && (
             <div className="bg-gray-50 dark:bg-gray-800/50 p-6 md:grid md:grid-cols-12 gap-8">
-                <div className="md:col-span-5 mb-6 md:mb-0">
+                <div className={`${isAdmin ? 'md:col-span-5' : 'md:col-span-7'} mb-6 md:mb-0`}>
                     <div className="flex justify-between items-center mb-2">
                         <h4 className="font-bold text-gray-800 dark:text-gray-100">Load Details</h4>
                         {isAdmin && (
@@ -378,21 +380,35 @@ Target Distribution`;
                         )}
                     </div>
                     <ul className="space-y-2 text-gray-700 dark:text-gray-300">
-                        {load.itemDescriptions.length === 1 ? (
-                          <li><strong className="dark:text-gray-100">Item:</strong> {load.itemDescriptions[0]}</li>
+                        {/* Item Description Logic: Admins see full details, others see "Magazines" */}
+                        {isAdmin ? (
+                            load.itemDescriptions.length === 1 ? (
+                              <li><strong className="dark:text-gray-100">Item:</strong> {load.itemDescriptions[0]}</li>
+                            ) : (
+                              <li>
+                                <strong className="dark:text-gray-100">Items:</strong>
+                                <ul className="list-disc list-inside pl-2 mt-1 space-y-1">
+                                  {load.itemDescriptions.map((desc, index) => <li key={index}>{desc}</li>)}
+                                </ul>
+                              </li>
+                            )
                         ) : (
-                          <li>
-                            <strong className="dark:text-gray-100">Items:</strong>
-                            <ul className="list-disc list-inside pl-2 mt-1 space-y-1">
-                              {load.itemDescriptions.map((desc, index) => <li key={index}>{desc}</li>)}
-                            </ul>
-                          </li>
+                            <li><strong className="dark:text-gray-100">Item:</strong> Magazines</li>
                         )}
-                        {load.referenceNumber && <li><strong className="dark:text-gray-100">Reference #:</strong> {load.referenceNumber}</li>}
-                        <li><strong className="dark:text-gray-100">Origin:</strong> {load.origin}</li>
+
+                        {load.referenceNumber && (
+                            <li>
+                                <strong className="dark:text-gray-100">Reference #:</strong> {isAdmin ? load.referenceNumber : 'Visible to dispatched carrier.'}
+                            </li>
+                        )}
+                        
+                        {/* Origin Logic: Admins see full address, others see City, State Zip via formatLocation */}
+                        <li><strong className="dark:text-gray-100">Origin:</strong> {isAdmin ? load.origin : formatLocation(load.origin)}</li>
+
+                        {/* Destination Logic: Admins see full address, others see City, State Zip via formatLocation */}
                         {load.destinations.length === 1 ? (
                           <li>
-                              <strong className="dark:text-gray-100">Destination:</strong> {load.destinations[0]}
+                              <strong className="dark:text-gray-100">Destination:</strong> {isAdmin ? load.destinations[0] : formatLocation(load.destinations[0])}
                               {load.destinationRefs && load.destinationRefs[0] && (
                                   <span className="text-gray-500 text-xs ml-2 font-mono">(Ref: {load.destinationRefs[0]})</span>
                               )}
@@ -403,7 +419,7 @@ Target Distribution`;
                             <ol className="list-decimal list-inside pl-2 mt-1 space-y-1">
                               {load.destinations.map((dest, index) => (
                                   <li key={index}>
-                                      {dest}
+                                      {isAdmin ? dest : formatLocation(dest)}
                                       {load.destinationRefs && load.destinationRefs[index] && (
                                           <span className="text-gray-500 text-xs ml-2 font-mono">(Ref: {load.destinationRefs[index]})</span>
                                       )}
@@ -431,14 +447,28 @@ Target Distribution`;
                             </li>
                         )}
                         {load.appointmentNumber && (
-                             <li><strong className="dark:text-gray-100">Appointment Number:</strong> {load.appointmentNumber}</li>
+                             <li><strong className="dark:text-gray-100">Appointment Number:</strong> {isAdmin ? load.appointmentNumber : 'Visible to dispatched carrier.'}</li>
                         )}
                         <li className="pt-2">
-                            <p className="text-sm italic text-gray-600 dark:text-gray-400">{load.details}</p>
+                            {isAdmin ? (
+                                <p className="text-sm italic text-gray-600 dark:text-gray-400">{load.details}</p>
+                            ) : (
+                                <div className="relative select-none group cursor-help" title="This information is available to dispatched carriers">
+                                     <p className="text-sm text-gray-400 dark:text-gray-500 filter blur-sm">
+                                        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Specific load instructions, contact details, and requirement notes are hidden.
+                                     </p>
+                                     <div className="absolute inset-0 flex items-center justify-center">
+                                         <span className="text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100/80 dark:bg-gray-800/80 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 backdrop-blur-sm">
+                                            Notes Hidden
+                                         </span>
+                                     </div>
+                                </div>
+                            )}
                         </li>
                     </ul>
                 </div>
 
+                {isAdmin && (
                 <div className="md:col-span-4 mb-6 md:mb-0">
                      <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">
                          Bid History ({load.bids.length})
@@ -450,42 +480,41 @@ Target Distribution`;
                                 return (
                                     <div 
                                         key={bid.id} 
-                                        className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 rounded-lg border ${isLowest ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 'bg-white border-gray-200 dark:bg-gray-700 dark:border-gray-600'}`}
+                                        className={`flex flex-col p-3 rounded-lg border mb-2 relative transition-colors ${isLowest ? 'bg-green-50 border-green-300 shadow-sm dark:bg-green-900/30 dark:border-green-600' : 'bg-white border-gray-200 dark:bg-gray-700 dark:border-gray-600'}`}
                                     >
-                                        <div className="flex flex-col mb-2 sm:mb-0">
-                                            <div className="flex items-center space-x-2">
-                                                <span className="font-semibold text-sm text-gray-700 dark:text-gray-200">{bid.carrierName}</span>
-                                                {isAdmin && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleSelectWinner(bid);
-                                                        }}
-                                                        className="p-1 text-gray-400 hover:text-green-600 dark:text-gray-500 dark:hover:text-green-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-600"
-                                                        title="Award Load (Email Carrier)"
-                                                    >
-                                                        <EnvelopeIcon className="h-4 w-4" />
-                                                    </button>
-                                                )}
-                                                {isLowest && <span className="text-[10px] uppercase tracking-wide font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">Lowest</span>}
+                                        {isLowest && (
+                                            <div className="absolute top-0 right-0 transform -translate-y-1/2 translate-x-2">
+                                                <span className="bg-green-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-sm border border-white dark:border-gray-800 uppercase tracking-wider">
+                                                    Lowest Bid
+                                                </span>
                                             </div>
-                                             <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(bid.timestamp).toLocaleDateString()}</span>
+                                        )}
+                                        
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                 <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-sm text-gray-700 dark:text-gray-200">{bid.carrierName}</span>
+                                                 </div>
+                                                 <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(bid.timestamp).toLocaleDateString()}</span>
+                                            </div>
+                                            <div className="font-bold text-gray-800 dark:text-gray-100">
+                                                {formatCurrency(bid.amount)}
+                                            </div>
                                         </div>
-                                        <div className="flex items-center justify-between w-full sm:w-auto space-x-4">
-                                            <div className="flex items-center space-x-2">
-                                                <span className="font-bold text-gray-800 dark:text-gray-100">{formatCurrency(bid.amount)}</span>
-                                            </div>
-                                            {isAdmin && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleSelectWinner(bid);
-                                                    }}
-                                                    className="text-xs bg-green-600 hover:bg-green-700 text-white font-medium px-3 py-1.5 rounded transition-colors shadow-sm whitespace-nowrap"
-                                                >
-                                                    Award Load
-                                                </button>
-                                            )}
+
+                                        {/* Admin Actions */}
+                                        <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-600 flex justify-end">
+                                             <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleSelectWinner(bid);
+                                                }}
+                                                className="text-xs flex items-center text-green-700 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 font-semibold transition-colors"
+                                                title="Award Load (Email Carrier)"
+                                            >
+                                                <EnvelopeIcon className="h-3 w-3 mr-1" />
+                                                Award Load
+                                            </button>
                                         </div>
                                     </div>
                                 );
@@ -495,8 +524,9 @@ Target Distribution`;
                         <p className="text-sm text-gray-500 dark:text-gray-400">No bids yet. Be the first!</p>
                     )}
                 </div>
+                )}
 
-                <div className="md:col-span-3">
+                <div className={`${isAdmin ? 'md:col-span-3' : 'md:col-span-5'}`}>
                     <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-2">Place Your Bid</h4>
                     <form onSubmit={handleBidSubmit} className="flex flex-col space-y-3">
                         <input
