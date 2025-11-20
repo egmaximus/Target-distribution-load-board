@@ -8,7 +8,7 @@ import LoadBuilderModal from './components/LoadBuilderModal';
 import LoginModal from './components/LoginModal';
 import SubscriptionForm from './components/SubscriptionForm';
 import { MOCK_LOADS } from './constants';
-import type { Load } from './types';
+import type { Load, Bid } from './types';
 import { getCarrierEmails } from './components/carrier-emails';
 
 const App: React.FC = () => {
@@ -180,6 +180,15 @@ Target Distribution`;
     setLoads(prevLoads => prevLoads.filter(load => load.id !== loadId));
   };
 
+  const handlePlaceBid = (loadId: string, bid: Bid) => {
+    setLoads(prevLoads => prevLoads.map(load => {
+      if (load.id === loadId) {
+        return { ...load, bids: [...load.bids, bid] };
+      }
+      return load;
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 font-sans transition-colors duration-300">
       <Header
@@ -203,6 +212,7 @@ Target Distribution`;
           onPromptLogin={handleOpenLoginModal}
           onRemoveLoad={handleRemoveLoad}
           onEditLoad={handleOpenEditModal}
+          onPlaceBid={handlePlaceBid}
         />
       </main>
       <LoadBuilderModal

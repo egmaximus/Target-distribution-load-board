@@ -1,3 +1,4 @@
+
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import type { Load, Bid } from '../types';
@@ -66,12 +67,14 @@ interface LoadItemProps {
   onPromptLogin: () => void;
   onRemoveLoad: (loadId: string) => void;
   onEditLoad: (load: Load) => void;
+  onPlaceBid: (loadId: string, bid: Bid) => void;
 }
 
-const LoadItem: React.FC<LoadItemProps> = ({ load, isLoggedIn, isAdmin, onPromptLogin, onRemoveLoad, onEditLoad }) => {
+const LoadItem: React.FC<LoadItemProps> = ({ load, isLoggedIn, isAdmin, onPromptLogin, onRemoveLoad, onEditLoad, onPlaceBid }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [bidAmount, setBidAmount] = useState('');
   const [carrierName, setCarrierName] = useState('');
+  const [carrierEmail, setCarrierEmail] = useState('');
   const [daysInTransit, setDaysInTransit] = useState('');
   const [error, setError] = useState('');
   const [distance, setDistance] = useState<number | 'loading' | 'error' | null>(null);
@@ -148,6 +151,12 @@ const LoadItem: React.FC<LoadItemProps> = ({ load, isLoggedIn, isAdmin, onPrompt
         setError('Please enter your company name.');
         return;
     }
+    
+    if (!carrierEmail.trim() || !/^\S+@\S+\.\S+$/.test(carrierEmail)) {
+        setError('Please enter a valid email address.');
+        return;
+    }
+
     if (isNaN(amount) || amount <= 0) {
       setError('Please enter a valid bid amount.');
       return;
@@ -157,6 +166,16 @@ const LoadItem: React.FC<LoadItemProps> = ({ load, isLoggedIn, isAdmin, onPrompt
       return;
     }
     setError('');
+
+    const newBid: Bid = {
+        id: `bid-${Date.now()}`,
+        carrierName: carrierName.trim(),
+        carrierEmail: carrierEmail.trim(),
+        amount: amount,
+        timestamp: new Date().toISOString(),
+    };
+
+    onPlaceBid(load.id, newBid);
 
     const recipient = 'OMorales@targetdistribution.com';
     const subject = `Bid for Load #${load.referenceNumber || load.id}: ${formatLocation(load.origin)} to ${formatLocation(load.destinations[0])}`;
@@ -183,6 +202,10 @@ Pallet Count: ${load.palletCount}
 Weight: ${load.weight.toLocaleString()} lbs
 Notes: ${load.details}
 
+Contact:
+Company: ${carrierName.trim()}
+Email: ${carrierEmail.trim()}
+
 Thank you,
 ${carrierName.trim()}
 `;
@@ -193,6 +216,7 @@ ${carrierName.trim()}
 
     setBidAmount('');
     setCarrierName('');
+    setCarrierEmail('');
     setDaysInTransit('');
   };
 
@@ -305,7 +329,7 @@ Target Distribution`;
             </div>
 
             {/* Origin / Destination */}
-            <div className="col-span-12 md:col-span-3 flex flex-col space-y-2">
+            <div className={`col-span-12 ${isAdmin ? 'md:col-span-3' : 'md:col-span-4'} flex flex-col space-y-2`}>
                  <div className="flex items-center space-x-2 text-gray-800 dark:text-gray-100 flex-wrap">
                     <LocationMarkerIcon className="h-5 w-5 text-green-500 flex-shrink-0" />
                     <span className="font-semibold">{formatLocation(load.origin)}</span>
@@ -326,21 +350,23 @@ Target Distribution`;
             </div>
 
             {/* Equipment */}
-            <div className="hidden md:flex md:col-span-2 items-center text-gray-700 dark:text-gray-300 space-x-2">
+            <div className={`hidden md:flex ${isAdmin ? 'md:col-span-2' : 'md:col-span-3'} items-center text-gray-700 dark:text-gray-300 space-x-2`}>
                 <TruckIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                 <span className="truncate" title={load.equipmentType}>{load.equipmentType}</span>
             </div>
 
-            {/* Current Bid */}
-            <div className="col-span-6 md:col-span-2 flex flex-col items-end">
-                {formatCurrency(lowestBid)}
-                {load.bids.length > 0 && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{load.bids.length} bids</span>
-                )}
-            </div>
+            {/* Current Bid - Only Visible to Admin */}
+            {isAdmin && (
+                <div className="col-span-6 md:col-span-2 flex flex-col items-end">
+                    {formatCurrency(lowestBid)}
+                    {load.bids.length > 0 && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{load.bids.length} bids</span>
+                    )}
+                </div>
+            )}
              
              {/* Actions */}
-             <div className="col-span-6 md:col-span-1 flex justify-center items-center">
+             <div className={`${isAdmin ? 'col-span-6 md:col-span-1' : 'col-span-12 md:col-span-1'} flex justify-center items-center`}>
                 <span className="text-sm font-semibold text-red-600 md:hidden mr-4">Details</span>
                 <ChevronDownIcon className={`h-6 w-6 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
             </div>
@@ -537,6 +563,17 @@ Target Distribution`;
                                 if(error) setError('');
                             }}
                             placeholder="Your Company Name"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-red-500 dark:focus:border-red-500"
+                            required
+                        />
+                         <input
+                            type="email"
+                            value={carrierEmail}
+                            onChange={(e) => {
+                                setCarrierEmail(e.target.value);
+                                if(error) setError('');
+                            }}
+                            placeholder="Contact Email"
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-red-500 dark:focus:border-red-500"
                             required
                         />
